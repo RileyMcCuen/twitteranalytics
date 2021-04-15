@@ -17,7 +17,7 @@ Generate important anaylitics and return these to the front end.
 ## Golang RESTful API
 
 This will handle all requests from the frontend and proxy data between the APIs,
-as well as deliver data to the frontend.
+as well as deliver data back to the frontend.
 
 The API will be deployed as a Docker image to GKE.
 
