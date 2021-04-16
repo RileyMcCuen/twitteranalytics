@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -51,6 +52,9 @@ func getUser(client *twitter.Client, username string) (*twitter.User, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(users) < 1 {
+		return nil, errors.New("no users were found with that username")
+	}
 	return &users[0], nil
 }
 
@@ -69,35 +73,42 @@ func intMax(a, b int) int {
 }
 
 const (
-	MinDays = 1
-	MaxDays = 7
+	MinDays    = 1
+	MaxDays    = 7
+	MaxResults = 100
 )
 
+// calculateStartTime calculates the UTC time days before right now.
 func calculateStartTime(days int) time.Time {
 	// TODO: actually calculate start time using days input
 	return time.Now().UTC()
 }
 
-// Tweets gets a list of tweets specified by data
-func Tweets(client *twitter.Client, data *GetAnalysisData) ([]string, error) {
-	data.Days = intMin(intMax(MinDays, data.Days), MaxDays)
-	// user, err := getUser(client, data.Username)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	tweets := make([]string, 0)
-
+// getTweets performs calls the Twitter API to get tweets fitting parameters
+// specified in data. The tweets are passed into the tweets channels.
+func getTweets(client *twitter.Client, data *GetAnalysisData, tweets chan string) {
 	// TODO: Implement pagination to get all tweets for specified days
 	search, _, err := client.Search.Tweets(&twitter.SearchTweetParams{
 		Query: fmt.Sprintf("from:%s", data.Username),
-		Count: 100,
+		Count: MaxResults,
 	})
 	if err != nil {
 		// TODO: check for request limit error, wait then continue making requests
-		return tweets, err
+		return
 	}
 	for _, status := range search.Statuses {
-		tweets = append(tweets, status.Text)
+		tweets <- status.Text
 	}
+	close(tweets)
+}
+
+// Tweets gets a list of tweets specified by data
+func Tweets(client *twitter.Client, data *GetAnalysisData) (chan string, error) {
+	if _, err := getUser(client, data.Username); err != nil {
+		return nil, err
+	}
+	data.Days = intMin(intMax(MinDays, data.Days), MaxDays)
+	tweets := make(chan string, MaxResults)
+	go getTweets(client, data, tweets)
 	return tweets, nil
 }

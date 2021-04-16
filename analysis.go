@@ -62,13 +62,13 @@ func GetAnalysisHO(tClient *twitter.Client, gClient *language.Client) http.Handl
 		// Check request method
 		if r.Method != http.MethodGet {
 			// Must be a GET request
-			writeError("Check Method", errors.New("/api/analysis only accepts GET requests"), w)
+			writeError("Method", errors.New("/api/analysis only accepts GET requests"), w)
 			return
 		}
 		// Unmarshal the request into data variable
 		data, err := unmarshal(r.URL.Query())
 		if err != nil {
-			writeError("Unmarshal Data", err, w)
+			writeError("Unmarshal", err, w)
 		}
 		// Get the list of tweets
 		tweets, err := Tweets(tClient, data)
@@ -77,7 +77,7 @@ func GetAnalysisHO(tClient *twitter.Client, gClient *language.Client) http.Handl
 			return
 		}
 		// Analyse the tweets
-		analysedData, err := Analyse(tweets)
+		analysedData, err := Analyse(gClient, tweets)
 		if err != nil {
 			writeError("Analyse", err, w)
 			return
@@ -85,7 +85,7 @@ func GetAnalysisHO(tClient *twitter.Client, gClient *language.Client) http.Handl
 		// Marshal the analysis data into JSON format for transport
 		ret, err := json.Marshal(analysedData)
 		if err != nil {
-			writeError("Marshal Data", err, w)
+			writeError("Marshal", err, w)
 			return
 		}
 		// Send the json data to the requester
