@@ -1,12 +1,14 @@
 google.charts.load('current', { packages: ['corechart', 'bar', 'table'] });
 google.charts.setOnLoadCallback(() => {
     document.getElementById('search').addEventListener('click', async (ev) => {
+        startLoading()
         const username = document.getElementById('twitter-handle').value;
         //const username = 'elonmusk';
         const resp = await fetch(
             `http://localhost/api/analysis?name=${encodeURI(username)}`
         );
         if (resp.ok) {
+            document.getElementById("loading-indicator-container").classList.remove("loader")
             const data = await resp.json();
             // const data = testData;
             createDataSummaryTable(username, data);
@@ -91,6 +93,14 @@ function createTopicChart(name, topics) {
         document.getElementById('topic-container')
     );
     chart.draw(data, options);
+}
+
+const startLoading = () => {
+    document.getElementById("topic-container").innerHTML = ""
+    document.getElementById("summary-container").innerHTML = ""
+    document.getElementById("sentiment-score-container").innerHTML = ""
+    document.getElementById("sentiment-dist-container").innerHTML = ""
+    document.getElementById("loading-indicator-container").classList.add("loader")
 }
 
 const testData = {
