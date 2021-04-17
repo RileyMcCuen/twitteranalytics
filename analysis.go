@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 
 	language "cloud.google.com/go/language/apiv1"
@@ -21,16 +22,150 @@ type (
 		Days int
 	}
 
+	ScoreCount struct {
+		Score float64
+		Count int
+	}
+
+	SortableSentiments []ScoreCount
+
+	TopicCount struct {
+		Topic string
+		Count int
+	}
+
+	SortableTopics []TopicCount
+
+	SentimentDist struct {
+		Negative, Neutral, Positive int
+	}
+
 	// AnalysedData is the result of GetAnalysisData after it is proccessed
 	AnalysedData struct {
 		// Scores is a list of all sentiment analysis scores
-		Scores []float64
+		Scores SortableSentiments
 		// MeanScore and MedianScore are calculated based on Scores
 		MeanScore, MedianScore float64
+		// Count is the number of tweets that were analysed
+		Count int
+		// SentimentDist contains the number of elements in one of three categories
+		ScoreDist SentimentDist
 		// Topics are all of the topics of the tweets
-		Topics []string
+		Topics SortableTopics
 	}
 )
+
+func (ss SortableSentiments) Len() int {
+	return len(ss)
+}
+
+func (ss SortableSentiments) Less(i, j int) bool {
+	return ss[i].Score < ss[j].Score
+}
+
+func (ss SortableSentiments) Swap(i, j int) {
+	tmp := ss[i]
+	ss[i] = ss[j]
+	ss[j] = tmp
+}
+
+func (sc SortableTopics) Len() int {
+	return len(sc)
+}
+
+func (sc SortableTopics) Less(i, j int) bool {
+	return sc[i].Count < sc[j].Count
+}
+
+func (sc SortableTopics) Swap(i, j int) {
+	tmp := sc[i]
+	sc[i] = sc[j]
+	sc[j] = tmp
+}
+
+func (d *AnalysedData) sortSentiments() *AnalysedData {
+	sort.Sort(d.Scores)
+	return d
+}
+
+func (d *AnalysedData) sortTopics() *AnalysedData {
+	sort.Sort(d.Topics)
+	return d
+}
+
+func (d *AnalysedData) count() *AnalysedData {
+	d.Count = d.Scores.Len()
+	return d
+}
+
+func (d *AnalysedData) calculateMedian() *AnalysedData {
+	mid := len(d.Scores) / 2
+	if len(d.Scores)%2 == 0 {
+		d.MedianScore = (d.Scores[mid-1].Score + d.Scores[mid].Score) / 2
+	} else {
+		d.MeanScore = d.Scores[mid].Score
+	}
+	return d
+}
+
+func (d *AnalysedData) calculateMean() *AnalysedData {
+	d.MeanScore /= float64(d.Scores.Len())
+	return d
+}
+
+func (d *AnalysedData) collectScores() *AnalysedData {
+	scores := make(map[float64]int)
+	for _, score := range d.Scores {
+		count, ok := scores[score.Score]
+		if !ok {
+			count = 0
+		}
+		scores[score.Score] = count + score.Count
+	}
+	scoresArr := make([]ScoreCount, len(scores))
+	i := 0
+	for score, count := range scores {
+		scoresArr[i] = ScoreCount{Score: score, Count: count}
+		i++
+	}
+
+	d.Scores = scoresArr
+	return d
+}
+
+func (d *AnalysedData) collectTopics() *AnalysedData {
+	topics := make(map[string]int)
+	for _, topic := range d.Topics {
+		count, ok := topics[topic.Topic]
+		if !ok {
+			count = 0
+		}
+		topics[topic.Topic] = count + topic.Count
+	}
+	topicsArr := make([]TopicCount, len(topics))
+	i := 0
+	for topic, count := range topics {
+		topicsArr[i] = TopicCount{Topic: topic, Count: count}
+		i++
+	}
+
+	d.Topics = topicsArr
+	return d
+}
+
+func (d *AnalysedData) calculateScoreDist() *AnalysedData {
+	d.ScoreDist = SentimentDist{}
+	for _, score := range d.Scores {
+		if score.Score <= -0.5 {
+			d.ScoreDist.Negative += score.Count
+		} else if score.Score >= 0.5 {
+			d.ScoreDist.Positive += score.Count
+		} else {
+			d.ScoreDist.Neutral += score.Count
+		}
+	}
+	return d
+}
 
 func writeError(location string, err error, w http.ResponseWriter) {
 	w.WriteHeader(http.StatusBadRequest)

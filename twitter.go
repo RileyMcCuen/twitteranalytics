@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/dghubble/go-twitter/twitter"
@@ -42,6 +43,7 @@ func GetTwitterClient(credentials *TwitterCredentials) (*twitter.Client, error) 
 // getUser get user info based on the user input (screen name)
 func getUser(client *twitter.Client, username string) (*twitter.User, error) {
 	includeEntities := true
+	log.Println(username)
 	searchParams := twitter.UserSearchParams{
 		Query:           username,
 		Page:            1,

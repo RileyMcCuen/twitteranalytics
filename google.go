@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log"
-	"sort"
 
 	language "cloud.google.com/go/language/apiv1"
 	languagepb "google.golang.org/genproto/googleapis/cloud/language/v1"
@@ -55,15 +54,6 @@ func analyseCategory(client *language.Client, ctx context.Context, in chan strin
 	close(out)
 }
 
-// calcMedian calculates the median of all of the scores in data.
-func calcMedian(data *AnalysedData) float64 {
-	mid := len(data.Scores) / 2
-	if len(data.Scores)%2 == 0 {
-		return (data.Scores[mid-1] + data.Scores[mid]) / 2
-	}
-	return data.Scores[mid]
-}
-
 // collectData gets all of the categories and scores from the output channels
 // and fills in all of the fields of an AnalysedData object. When both output
 // channels are closes a quit message is sent on the quit channel.
@@ -73,13 +63,13 @@ func collectData(data *AnalysedData, sentOut chan float64, catOut chan string, q
 		case sent, ok := <-sentOut:
 			if ok {
 				data.MeanScore += sent
-				data.Scores = append(data.Scores, sent)
+				data.Scores = append(data.Scores, ScoreCount{Score: sent, Count: 1})
 			} else {
 				sentOut = nil
 			}
 		case cat, ok := <-catOut:
 			if ok {
-				data.Topics = append(data.Topics, cat)
+				data.Topics = append(data.Topics, TopicCount{Topic: cat, Count: 1})
 			} else {
 				catOut = nil
 			}
@@ -87,9 +77,17 @@ func collectData(data *AnalysedData, sentOut chan float64, catOut chan string, q
 	}
 
 	if len(data.Scores) > 0 {
-		data.Scores = sort.Float64Slice(data.Scores)
-		data.MeanScore /= float64(len(data.Scores))
-		data.MedianScore = calcMedian(data)
+		data.
+			sortSentiments(). // sort to calculate median
+			count().
+			calculateMedian().
+			calculateMean().
+			collectScores().
+			sortSentiments(). // sort so returned values are in order after collect
+			calculateScoreDist().
+			collectTopics().
+			sortTopics()
+
 		quit <- nil
 	} else {
 		quit <- errors.New("there were no tweets in the last week for that person")
