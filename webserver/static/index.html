@@ -1,0 +1,48 @@
+<!doctype html>
+
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+
+    <title>Twitter Analysis</title>
+    <meta name="description" content="Twitter Analysis">
+    <meta name="author" content="Riley McCuen & Taylor Howard">
+
+    <link rel="stylesheet" href="styles.css">
+
+    <script src="https://www.gstatic.com/charts/loader.js"></script>
+
+    <style>
+        .loader {
+            border: 16px solid #f3f3f3; /* Light grey */
+            border-top: 16px solid #3498db; /* Blue */
+            border-radius: 50%;
+            width: 120px;
+            height: 120px;
+            animation: spin 2s linear infinite;
+            padding: 1rem;
+            margin: auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+
+<body>
+    <h1> Twitter Analysis </h1>
+    <p> This site is for analysing tweets by a single account on Twitter. </p>
+    <input id="twitter-handle" type="text" placeholder="Twitter Handle" />
+    <button id="search"> Search </button>
+    <div id="loading-indicator-container" class="classname"></div>
+    <div id="summary-container"></div>
+    <div id="sentiment-score-container"></div>
+    <div id="sentiment-dist-container"></div>
+    <div id="topic-container"></div>
+    <script src="scripts.js"></script>
+</body>
+
+</html>
