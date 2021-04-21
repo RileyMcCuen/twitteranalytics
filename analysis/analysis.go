@@ -18,6 +18,8 @@ type (
 	GetAnalysisData struct {
 		// Username is the username of the Twitter user to analyse
 		Username string
+		// UserID is the Twitter id for the first user when searching for Username on the Twitter API
+		UserID int64
 		// Days is the number of days in the past to collect tweets from
 		Days int
 	}
