@@ -15,6 +15,7 @@ type (
 	// DocumentMetaData is all of the data aside form tweets describing an entity
 	// in the datastore.
 	DocumentMetaData struct {
+		Username                             string
 		UserID, LastTweetID, EarliestTweetID int64
 	}
 
@@ -80,8 +81,14 @@ func store(doc *AnalysedDocument, ds *datastore.Client) error {
 	}
 	// get the old entity
 	oldDoc := &AnalysedDocument{}
+	// TODO: Verify that we are making objects correctly, look up Update instead of Get->Put
 	if err := tx.Get(key, oldDoc); err != nil {
 		// pass, I think this means object is not in db yet, should be consistent
+	} else if oldDoc.EarliestTweetID < doc.EarliestTweetID &&
+		oldDoc.LastTweetID > doc.LastTweetID {
+		// if all of the tweets in this batch have already been covered then do
+		// not add them to the database as they have already been analysed.
+		return tx.Rollback()
 	} else {
 		// combine new data and old data
 		if oldDoc.EarliestTweetID < doc.EarliestTweetID {
@@ -97,8 +104,8 @@ func store(doc *AnalysedDocument, ds *datastore.Client) error {
 		return err
 	}
 	// commit the updates
-	tx.Commit()
-	return nil
+	_, err = tx.Commit()
+	return err
 }
 
 // Analyse reads roughly cleaned tweets from the bucket and then performs

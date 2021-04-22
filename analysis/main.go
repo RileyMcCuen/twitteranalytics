@@ -30,6 +30,7 @@ func InitStorage() *storage.BucketHandle {
 	return bucket
 }
 
+// InitModel creates a model that will derive the sentiment from a string.
 func InitModel() sentiment.Models {
 	model, err := sentiment.Restore()
 	if err != nil {
@@ -38,6 +39,7 @@ func InitModel() sentiment.Models {
 	return model
 }
 
+// InitDatastore creates a client to contact the database.
 func InitDatastore() *datastore.Client {
 	store, err := datastore.NewClient(context.Background(), os.Getenv("PROJECT_ID"))
 	if err != nil {
