@@ -9,18 +9,44 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"cloud.google.com/go/storage"
 	"github.com/dghubble/go-twitter/twitter"
 	"github.com/dghubble/oauth1"
 )
 
-// TwitterCredentials data structore for twitter api credentials
-type TwitterCredentials struct {
-	ConsumerKey       string
-	ConsumerSecret    string
-	AccessToken       string
-	AccessTokenSecret string
+type (
+	// TwitterCredentials data structore for twitter api credentials
+	TwitterCredentials struct {
+		ConsumerKey       string
+		ConsumerSecret    string
+		AccessToken       string
+		AccessTokenSecret string
+	}
+
+	// CleanDocument contains a list of tweets betweeen EarliestTweetID
+	// LastTweetID for user with UserID that is derived from Username.
+	CleanDocument struct {
+		Username                             string
+		UserID, LastTweetID, EarliestTweetID int64
+		Tweets                               []string
+	}
+)
+
+// MaxResults is the maximum number of results that are retrieved in each request
+const MaxResults = 200
+
+// PTrue returns a pointer to a bool with value of true
+func PTrue() *bool {
+	ret := true
+	return &ret
+}
+
+// PTrue returns a pointer to a bool with value of false
+func PFalse() *bool {
+	ret := false
+	return &ret
 }
 
 // GetTwitterClient function to authorize twitter api and create a client
@@ -65,33 +91,19 @@ func getUser(client *twitter.Client, username string) (*twitter.User, error) {
 	return &users[0], nil
 }
 
-const MaxResults = 200
-
-func PTrue() *bool {
-	ret := true
-	return &ret
-}
-
-func PFalse() *bool {
-	ret := false
-	return &ret
-}
-
-type CleanDocument struct {
-	UserID, LastTweetID, EarliestTweetID int64
-	Tweets                               []string
-}
-
-// jake and logan paul, alex jones, joe rogan,
-
 // getTweets performs calls the Twitter API to get tweets fitting parameters
 // specified in data. The tweets are passed into the tweets channels.
-func getTweets(client *twitter.Client, userID int64) (*CleanDocument, error) {
+func getTweets(client *twitter.Client, username string, userID int64) (*CleanDocument, error) {
 	var resp []twitter.Tweet
 	var err error
-	count, doc := 0, &CleanDocument{UserID: userID, LastTweetID: 0, EarliestTweetID: math.MaxInt64, Tweets: make([]string, 0)}
+	count, doc := 0, &CleanDocument{
+		Username:        username,
+		UserID:          userID,
+		LastTweetID:     0,
+		EarliestTweetID: math.MaxInt64,
+		Tweets:          make([]string, 0),
+	}
 	for ok := true; ok; ok = len(resp) > 0 {
-		// VERIFY that resp is not being shadowed
 		resp, _, err = client.Timelines.UserTimeline(&twitter.UserTimelineParams{
 			UserID:          userID,
 			Count:           MaxResults,
@@ -101,7 +113,8 @@ func getTweets(client *twitter.Client, userID int64) (*CleanDocument, error) {
 		})
 		count += len(resp)
 		// Create better error reporting mechanism
-		if err != nil || count >= 600 {
+		if err != nil {
+			log.Printf("Encountered error when getting tweets for %s: %v", username, err)
 			return doc, err
 		}
 
@@ -121,26 +134,29 @@ func getTweets(client *twitter.Client, userID int64) (*CleanDocument, error) {
 	return doc, nil
 }
 
-// Tweets gets a list of tweets specified by username
-func Tweets(client *twitter.Client, username string) (*CleanDocument, error) {
-	user, err := getUser(client, username)
-	if err != nil {
-		return nil, err
-	}
-	return getTweets(client, user.ID)
-}
-
+// writeError returns a plaintext message to the caller including the location
+// where the error occurred, what the error was, and a BadRequest status.
 func writeError(location string, err error, w http.ResponseWriter) {
 	w.WriteHeader(http.StatusBadRequest)
 	w.Write([]byte(fmt.Sprintf("Location: %s, Error: %v", location, err.Error())))
 }
 
-func unmarshal(values url.Values) (string, error) {
+// unmarshal gets the query parameters from the get request and returns them if
+// they are all valid, otherwise it returns an error
+func unmarshal(values url.Values) (string, int64, error) {
 	username := values.Get("name")
 	if username == "" {
-		return username, errors.New("username was empty, but should not have been")
+		return "", 0, errors.New("username was empty, but should not have been")
 	}
-	return username, nil
+	rawUserID := values.Get("id")
+	if rawUserID == "" {
+		return "", 0, errors.New("id was empty, but should not have been")
+	}
+	userID, err := strconv.ParseInt(rawUserID, 10, 64)
+	if err != nil {
+		return "", 0, fmt.Errorf("%v; userID was not a valid int64: (%s)", err, rawUserID)
+	}
+	return username, userID, nil
 }
 
 // storeTweets writes the document containing tweet information in a document
@@ -158,7 +174,11 @@ func storeTweets(bucket *storage.BucketHandle, doc *CleanDocument) (string, erro
 	return fileName, nil
 }
 
+// TweetsHO...
 func TweetsHO(client *twitter.Client, bucket *storage.BucketHandle) http.HandlerFunc {
+	// Tweets gets a collection of strings from Twitter given a userID, then
+	// creates a document in the datastore containing the tweets and metadata
+	// about them and the user who tweeted them.
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Check request method
 		if r.Method != http.MethodGet {
@@ -167,12 +187,12 @@ func TweetsHO(client *twitter.Client, bucket *storage.BucketHandle) http.Handler
 			return
 		}
 		// Unmarshal the request into data variable
-		data, err := unmarshal(r.URL.Query())
+		name, id, err := unmarshal(r.URL.Query())
 		if err != nil {
 			writeError("Unmarshal", err, w)
 		}
 		// Get the list of tweets
-		tweets, err := Tweets(client, data)
+		tweets, err := getTweets(client, name, id)
 		if err != nil {
 			writeError("Tweets", err, w)
 			return

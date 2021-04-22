@@ -25,6 +25,7 @@ func InitTwitter() *twitter.Client {
 	return client
 }
 
+// InitDatastore intializes the database client
 func InitDatastore() *datastore.Client {
 	store, err := datastore.NewClient(context.Background(), os.Getenv("PROJECT_ID"))
 	if err != nil {
