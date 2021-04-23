@@ -1,14 +1,12 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
-	"log"
-	"time"
-
 	"cloud.google.com/go/datastore"
 	"cloud.google.com/go/storage"
+	"context"
+	"encoding/json"
 	"github.com/cdipaolo/sentiment"
+	"log"
 )
 
 type (
@@ -104,34 +102,41 @@ func store(doc *AnalysedDocument, ds *datastore.Client) error {
 // Analyse reads roughly cleaned tweets from the bucket and then performs
 // sentiment analysis on them. After all of the analysis is complete, the new
 // data is pushed to the datastore.
-func Analyse(bucket *storage.BucketHandle, model sentiment.Models, ds *datastore.Client, stop chan bool) {
-	// while the quit signal has not been sent, keep trying to get more documents
-	for len(stop) == 0 {
-		// Get all of the names of all objects in the bucket
-		iter := bucket.Objects(context.Background(), &storage.Query{
-			Versions:   false,
-			Projection: storage.ProjectionNoACL,
-		})
-		names := make([]string, 0)
-		for obj, err := iter.Next(); err == nil && obj != nil; obj, err = iter.Next() {
-			names = append(names, obj.Name)
-		}
-		// If there are no names, then sleep for a bit then check again
-		if len(names) == 0 {
-			time.Sleep(10 * time.Second)
-		} else {
-			// Otherwise, read in the names one at a time and process the objects
-			for _, name := range names {
-				// If the quite signal has been sent before reading in any names
-				// then stop analysing right now.
-				if len(stop) > 0 {
-					return
-				}
-				doc := analyse(bucket.Object(name), model)
-				if doc != nil {
-					store(doc, ds)
-				}
-			}
+func Analyse(bucket *storage.BucketHandle, model sentiment.Models, ds *datastore.Client, fileName string) {
+	doc := analyse(bucket.Object(fileName), model)
+	if doc != nil {
+		err := store(doc, ds)
+		if err != nil {
+			return
 		}
 	}
+	// while the quit signal has not been sent, keep trying to get more documents
+	//for len(stop) == 0 {
+	//	// Get all of the names of all objects in the bucket
+	//	iter := bucket.Objects(context.Background(), &storage.Query{
+	//		Versions:   false,
+	//		Projection: storage.ProjectionNoACL,
+	//	})
+	//	names := make([]string, 0)
+	//	for obj, err := iter.Next(); err == nil && obj != nil; obj, err = iter.Next() {
+	//		names = append(names, obj.Name)
+	//	}
+	//	// If there are no names, then sleep for a bit then check again
+	//	if len(names) == 0 {
+	//		time.Sleep(10 * time.Second)
+	//	} else {
+	//		// Otherwise, read in the names one at a time and process the objects
+	//		for _, name := range names {
+	//			// If the quite signal has been sent before reading in any names
+	//			// then stop analysing right now.
+	//			if len(stop) > 0 {
+	//				return
+	//			}
+	//			doc := analyse(bucket.Object(name), model)
+	//			if doc != nil {
+	//				store(doc, ds)
+	//			}
+	//		}
+	//	}
+	//}
 }

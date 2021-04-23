@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cloud.google.com/go/pubsub"
 	"context"
 	"log"
 	"net/http"
@@ -46,6 +47,15 @@ func InitDatastore() *datastore.Client {
 	return store
 }
 
+func InitPubSubClient() *pubsub.Client {
+	ctx := context.Background()
+	client, err := pubsub.NewClient(ctx, os.Getenv("PROJECT_ID"))
+	if err != nil {
+		log.Fatalf("Could not initialize pub sub client: #{err}\n")
+	}
+	return client
+}
+
 // TODO: Make a pubsub for the tweets to be processed
 
 // VerifyEnvironment verifies that all expected environment variables exist
@@ -64,9 +74,9 @@ func VerifyEnvironment() {
 }
 
 // InitLibs prepares external libraries with credentials to make API calls.
-func InitLibs() (*storage.BucketHandle, sentiment.Models, *datastore.Client) {
+func InitLibs() (*storage.BucketHandle, sentiment.Models, *datastore.Client, *pubsub.Client) {
 	VerifyEnvironment()
-	return InitStorage(), InitModel(), InitDatastore()
+	return InitStorage(), InitModel(), InitDatastore(), InitPubSubClient()
 }
 
 // Health is a probe endpoint, it always returns StatusOK and "Healthy".
@@ -77,9 +87,34 @@ func Health(w http.ResponseWriter, r *http.Request) {
 // main starts up the webserver.
 func main() {
 	// Get clients
-	bucket, model, ds := InitLibs()
-	stopExecuting := make(chan bool, 0)
-	go Analyse(bucket, model, ds, stopExecuting)
+	bucket, model, ds, pubSubClient := InitLibs()
+	//TODO: sub here, call Analyse when the topic has been published to
+	ctx := context.Background()
+	//TODO: check if this is the write way to make sure topic exists
+	topic, err := pubSubClient.CreateTopic(ctx, "TwitterAnalysis427")
+	if err != nil {
+		topic = pubSubClient.Topic("TwitterAnalysis427")
+	}
+	//TODO: include pod number in id?
+	sub, err := pubSubClient.CreateSubscription(ctx, "analysis-subscription", pubsub.SubscriptionConfig{Topic: topic})
+	if err != nil {
+		log.Fatalf("Error creating subscriber: #{err}]\n")
+	}
+	receiveErr := sub.Receive(ctx, func(ctx context.Context, message *pubsub.Message) {
+		//TODO: analyse
+		file := string(message.Data)
+		Analyse(bucket, model, ds, file)
+		message.Ack()
+	})
+	//TODO: make sure this is appropriate error handling
+	if receiveErr != nil {
+		log.Fatalf("Error receiving from publisher: #{err}]\n")
+	}
+
+	//TODO: make this not a go routine
+	//stopExecuting := make(chan bool, 0)
+	//go Analyse(bucket, model, ds, stopExecuting)
+
 	// Handle calls to the health endpoint
 	http.HandleFunc("/api/health", Health)
 	log.Fatal(http.ListenAndServe(os.Getenv("ADDRESS"), nil))

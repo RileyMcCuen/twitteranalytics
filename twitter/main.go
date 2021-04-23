@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cloud.google.com/go/pubsub"
 	"context"
 	"log"
 	"net/http"
@@ -45,6 +46,14 @@ func InitStorage() *storage.BucketHandle {
 }
 
 // TODO: Make a pubsub for the tweets to be processed
+func InitPubSub() *pubsub.Client {
+	ctx := context.Background()
+	client, err := pubsub.NewClient(ctx, os.Getenv("PROJECT_ID"))
+	if err != nil {
+		log.Fatalf("Could not set up pub sub client: #{err}\n")
+	}
+	return client
+}
 
 // VerifyEnvironment verifies that all expected environment variables exist
 func VerifyEnvironment() {
@@ -56,6 +65,7 @@ func VerifyEnvironment() {
 		"GOOGLE_APPLICATION_CREDENTIALS",
 		"BUCKET",
 		"ADDRESS",
+		"PROJECT_ID",
 	}
 	for _, envVar := range envVariables {
 		if _, ok := os.LookupEnv(envVar); !ok {
@@ -65,9 +75,9 @@ func VerifyEnvironment() {
 }
 
 // InitLibs prepares external libraries with credentials to make API calls.
-func InitLibs() (*twitter.Client, *storage.BucketHandle) {
+func InitLibs() (*twitter.Client, *pubsub.Client, *storage.BucketHandle) {
 	VerifyEnvironment()
-	return InitTwitter(), InitStorage()
+	return InitTwitter(), InitPubSub(), InitStorage()
 }
 
 // Health is a probe endpoint, it always returns StatusOK and "Healthy".
@@ -78,9 +88,9 @@ func Health(w http.ResponseWriter, r *http.Request) {
 // main starts up the webserver.
 func main() {
 	// Get clients
-	client, bucket := InitLibs()
+	twitterClient, pubSubClient, bucket := InitLibs()
 	// Handle calls to the analysis endpoint
-	http.HandleFunc("/api/tweets", TweetsHO(client, bucket))
+	http.HandleFunc("/api/tweets", TweetsHO(twitterClient, pubSubClient, bucket))
 	// Handle calls to the health endpoint
 	http.HandleFunc("/api/health", Health)
 	log.Fatal(http.ListenAndServe(os.Getenv("ADDRESS"), nil))

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cloud.google.com/go/pubsub"
 	"context"
 	"encoding/json"
 	"errors"
@@ -158,7 +159,7 @@ func storeTweets(bucket *storage.BucketHandle, doc *CleanDocument) (string, erro
 	return fileName, nil
 }
 
-func TweetsHO(client *twitter.Client, bucket *storage.BucketHandle) http.HandlerFunc {
+func TweetsHO(twitterClient *twitter.Client, pubSubClient *pubsub.Client, bucket *storage.BucketHandle) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Check request method
 		if r.Method != http.MethodGet {
@@ -172,7 +173,7 @@ func TweetsHO(client *twitter.Client, bucket *storage.BucketHandle) http.Handler
 			writeError("Unmarshal", err, w)
 		}
 		// Get the list of tweets
-		tweets, err := Tweets(client, data)
+		tweets, err := Tweets(twitterClient, data)
 		if err != nil {
 			writeError("Tweets", err, w)
 			return
@@ -182,6 +183,31 @@ func TweetsHO(client *twitter.Client, bucket *storage.BucketHandle) http.Handler
 			writeError("Store", err, w)
 			return
 		}
+		//TODO: check if this is the right way to publish to topic
+		//TODO: wrap this in a goroutine?
+		//TODO: move topic id to environment variable
+		ctx := context.Background()
+		//TODO: this part feels wrong
+		topic, err := pubSubClient.CreateTopic(ctx, "TwitterAnalysis427")
+		if err != nil {
+			topic = pubSubClient.Topic("TwitterAnalysis427")
+		}
+		var results []*pubsub.PublishResult
+		res := topic.Publish(ctx, &pubsub.Message{
+			Data: []byte(message),
+		})
+
+		results = append(results, res)
+		// Do other work ...
+		for _, r := range results {
+			id, err := r.Get(ctx)
+			if err != nil {
+				// TODO: Handle error.
+			}
+			fmt.Printf("Published a message with a message ID: %s\n", id)
+		}
+		//END wrapping
+
 		// Marshal the analysis data into JSON format for transport
 		ret, err := json.Marshal(struct{ Message string }{Message: message})
 		if err != nil {
