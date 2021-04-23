@@ -33,7 +33,19 @@ type (
 		DocumentMetaData
 		TweetScores []uint8
 	}
+
+	// Changes is the flag in the database indicating whether new data has been
+	// added since the last time Changes was checked and toggled.
+	Changes struct{ ChangesMade bool }
 )
+
+const (
+	changesKind = "Changes"
+	userKind    = "User"
+)
+
+// changesKey is the key to an entity that indicates whether any updates to the database have happened
+var changesKey = datastore.IDKey(changesKind, 0, nil)
 
 // analyse performs analysis on all of the tweets in an object in cloud storage
 // using the model, then returns all of the new data.
@@ -74,7 +86,7 @@ func analyse(obj *storage.ObjectHandle, model sentiment.Models) *AnalysedDocumen
 // store takes in an AnalysedDocument and updates the necessary entities in
 // the datastore.
 func store(doc *AnalysedDocument, ds *datastore.Client) error {
-	key := datastore.IDKey("User", doc.UserID, nil)
+	key := datastore.IDKey(userKind, doc.UserID, nil)
 	tx, err := ds.NewTransaction(context.Background())
 	if err != nil {
 		return err
@@ -104,7 +116,11 @@ func store(doc *AnalysedDocument, ds *datastore.Client) error {
 		return err
 	}
 	// commit the updates
-	_, err = tx.Commit()
+	if _, err = tx.Commit(); err != nil {
+		return err
+	}
+	// update the changes flag in the database
+	_, err = ds.Put(context.Background(), changesKey, &Changes{ChangesMade: true})
 	return err
 }
 
