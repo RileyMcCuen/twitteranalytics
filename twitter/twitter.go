@@ -1,7 +1,6 @@
 package main
 
 import (
-	"cloud.google.com/go/pubsub"
 	"context"
 	"encoding/json"
 	"errors"
@@ -10,6 +9,8 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+
+	"cloud.google.com/go/pubsub"
 
 	"cloud.google.com/go/storage"
 	"github.com/dghubble/go-twitter/twitter"
@@ -159,64 +160,62 @@ func storeTweets(bucket *storage.BucketHandle, doc *CleanDocument) (string, erro
 	return fileName, nil
 }
 
-func TweetsHO(twitterClient *twitter.Client, pubSubClient *pubsub.Client, bucket *storage.BucketHandle) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// Check request method
-		if r.Method != http.MethodGet {
-			// Must be a GET request
-			writeError("Method", errors.New("/api/analysis only accepts GET requests"), w)
-			return
+type FetchMessage struct {
+	Username string
+	UserID   int64
+}
+
+// Subscribe pulls requests from a subscription and handles then whenever they
+// are recieved.
+func Subscribe(sub *pubsub.Subscription, messageHandler func(string, int64) error, quit chan bool) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	if err := sub.Receive(ctx, func(c context.Context, m *pubsub.Message) {
+		fm := FetchMessage{}
+		if err := json.Unmarshal(m.Data, &fm); err != nil {
+			log.Println(err)
+			m.Nack()
 		}
-		// Unmarshal the request into data variable
-		data, err := unmarshal(r.URL.Query())
-		if err != nil {
-			writeError("Unmarshal", err, w)
+		if err := messageHandler(fm.Username, fm.UserID); err != nil {
+			log.Println(err)
+			m.Nack()
+		} else {
+			m.Ack()
 		}
+	}); err != nil {
+		cancel()
+		return err
+	}
+	// If quit is called then stop getting messages from the subscription
+	go func() {
+		<-quit
+		cancel()
+	}()
+	return nil
+}
+
+// MessageHandlerHO returns a message handler that can handle a username and
+// userid, fetch messages, store the messages in the cloud, then publish
+// another pubsub message.
+func MessageHandlerHO(tClient *twitter.Client, topic *pubsub.Topic, bucket *storage.BucketHandle) func(string, int64) error {
+	return func(username string, userID int64) error {
 		// Get the list of tweets
-		tweets, err := Tweets(twitterClient, data)
+		tweets, err := Tweets(tClient, username)
 		if err != nil {
-			writeError("Tweets", err, w)
-			return
+			return err
 		}
 		message, err := storeTweets(bucket, tweets)
 		if err != nil {
-			writeError("Store", err, w)
-			return
+			return err
 		}
-		//TODO: check if this is the right way to publish to topic
-		//TODO: wrap this in a goroutine?
-		//TODO: move topic id to environment variable
-		ctx := context.Background()
-		//TODO: this part feels wrong
-		topic, err := pubSubClient.CreateTopic(ctx, "TwitterAnalysis427")
-		if err != nil {
-			topic = pubSubClient.Topic("TwitterAnalysis427")
-		}
-		var results []*pubsub.PublishResult
-		res := topic.Publish(ctx, &pubsub.Message{
+
+		res := topic.Publish(context.Background(), &pubsub.Message{
 			Data: []byte(message),
 		})
 
-		results = append(results, res)
-		// Do other work ...
-		for _, r := range results {
-			id, err := r.Get(ctx)
-			if err != nil {
-				// TODO: Handle error.
-			}
-			fmt.Printf("Published a message with a message ID: %s\n", id)
+		if _, err := res.Get(context.Background()); err != nil {
+			return err
 		}
-		//END wrapping
 
-		// Marshal the analysis data into JSON format for transport
-		ret, err := json.Marshal(struct{ Message string }{Message: message})
-		if err != nil {
-			writeError("Marshal", err, w)
-			return
-		}
-		// Send the json data to the requester
-		w.WriteHeader(http.StatusCreated)
-		w.Header().Add("Content-Type", "application/json")
-		w.Write(ret)
+		return nil
 	}
 }

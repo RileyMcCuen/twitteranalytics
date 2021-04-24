@@ -1,11 +1,12 @@
 package main
 
 import (
-	"cloud.google.com/go/pubsub"
 	"context"
 	"log"
 	"net/http"
 	"os"
+
+	"cloud.google.com/go/pubsub"
 
 	"cloud.google.com/go/storage"
 	"github.com/dghubble/go-twitter/twitter"
@@ -66,6 +67,8 @@ func VerifyEnvironment() {
 		"BUCKET",
 		"ADDRESS",
 		"PROJECT_ID",
+		"PUB_SUB_SUBSCRIPTION_ID",
+		"PUB_SUB_TOPIC_ID",
 	}
 	for _, envVar := range envVariables {
 		if _, ok := os.LookupEnv(envVar); !ok {
@@ -80,6 +83,19 @@ func InitLibs() (*twitter.Client, *pubsub.Client, *storage.BucketHandle) {
 	return InitTwitter(), InitPubSub(), InitStorage()
 }
 
+// ConfigurePubSub gets a subscription and topic and makes sure that both exist.
+func ConfigurePubSub(psClient *pubsub.Client) (*pubsub.Subscription, *pubsub.Topic) {
+	subID, topicID := os.Getenv("PUB_SUB_SUBSCRIPTION_ID"), os.Getenv("PUB_SUB_TOPIC_ID")
+	sub, topic := psClient.Subscription(subID), psClient.Topic(topicID)
+	if ok, err := sub.Exists(context.Background()); !ok || err != nil {
+		log.Fatalf("Subscription: %s does not exist. Error: %v\n", subID, err)
+	}
+	if ok, err := topic.Exists(context.Background()); !ok || err != nil {
+		log.Fatalf("Topic: %s does not exist. Error: %v\n", topicID, err)
+	}
+	return sub, topic
+}
+
 // Health is a probe endpoint, it always returns StatusOK and "Healthy".
 func Health(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Healthy"))
@@ -88,9 +104,11 @@ func Health(w http.ResponseWriter, r *http.Request) {
 // main starts up the webserver.
 func main() {
 	// Get clients
-	twitterClient, pubSubClient, bucket := InitLibs()
+	tClient, psClient, bucket := InitLibs()
+	sub, topic := ConfigurePubSub(psClient)
+	quit := make(chan bool, 0)
 	// Handle calls to the analysis endpoint
-	http.HandleFunc("/api/tweets", TweetsHO(twitterClient, pubSubClient, bucket))
+	Subscribe(sub, MessageHandlerHO(tClient, topic, bucket), quit)
 	// Handle calls to the health endpoint
 	http.HandleFunc("/api/health", Health)
 	log.Fatal(http.ListenAndServe(os.Getenv("ADDRESS"), nil))
