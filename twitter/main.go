@@ -108,7 +108,10 @@ func main() {
 	sub, topic := ConfigurePubSub(psClient)
 	quit := make(chan bool, 0)
 	// Handle calls to the analysis endpoint
-	Subscribe(sub, MessageHandlerHO(tClient, topic, bucket), quit)
+	err := Subscribe(sub, MessageHandlerHO(tClient, topic, bucket), quit)
+	if err != nil {
+		return
+	}
 	// Handle calls to the health endpoint
 	http.HandleFunc("/api/health", Health)
 	log.Fatal(http.ListenAndServe(os.Getenv("ADDRESS"), nil))

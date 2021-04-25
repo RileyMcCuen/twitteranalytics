@@ -56,8 +56,17 @@ func InitPubSubClient() *pubsub.Client {
 	return client
 }
 
-// TODO: Make a pubsub for the tweets to be processed
+// ConfigurePubSub gets a subscription and topic and makes sure that both exist.
+func ConfigurePubSub(psClient *pubsub.Client) *pubsub.Subscription {
+	subID := os.Getenv("PUB_SUB_SUBSCRIPTION_ID")
+	sub := psClient.Subscription(subID)
+	if ok, err := sub.Exists(context.Background()); !ok || err != nil {
+		log.Fatalf("Subscription: %s does not exist. Error: %v\n", subID, err)
+	}
+	return sub
+}
 
+//TODO: Update this
 // VerifyEnvironment verifies that all expected environment variables exist
 func VerifyEnvironment() {
 	envVariables := [...]string{
@@ -87,21 +96,12 @@ func Health(w http.ResponseWriter, r *http.Request) {
 // main starts up the webserver.
 func main() {
 	// Get clients
-	bucket, model, ds, pubSubClient := InitLibs()
+	bucket, model, ds, psClient := InitLibs()
 	//TODO: sub here, call Analyse when the topic has been published to
 	ctx := context.Background()
-	//TODO: check if this is the write way to make sure topic exists
-	topic, err := pubSubClient.CreateTopic(ctx, "TwitterAnalysis427")
-	if err != nil {
-		topic = pubSubClient.Topic("TwitterAnalysis427")
-	}
-	//TODO: include pod number in id?
-	sub, err := pubSubClient.CreateSubscription(ctx, "analysis-subscription", pubsub.SubscriptionConfig{Topic: topic})
-	if err != nil {
-		log.Fatalf("Error creating subscriber: #{err}]\n")
-	}
+	sub := ConfigurePubSub(psClient)
 	receiveErr := sub.Receive(ctx, func(ctx context.Context, message *pubsub.Message) {
-		//TODO: analyse
+		//TODO: add some error handling
 		file := string(message.Data)
 		Analyse(bucket, model, ds, file)
 		message.Ack()

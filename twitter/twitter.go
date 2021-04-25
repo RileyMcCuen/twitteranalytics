@@ -9,6 +9,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"cloud.google.com/go/pubsub"
 
@@ -124,12 +125,12 @@ func getTweets(client *twitter.Client, userID int64) (*CleanDocument, error) {
 }
 
 // Tweets gets a list of tweets specified by username
-func Tweets(client *twitter.Client, username string) (*CleanDocument, error) {
-	user, err := getUser(client, username)
-	if err != nil {
-		return nil, err
-	}
-	return getTweets(client, user.ID)
+func Tweets(client *twitter.Client, userID int64) (*CleanDocument, error) {
+	//user, err := getUser(client, username)
+	//if err != nil {
+	//	return nil, err
+	//}
+	return getTweets(client, userID)
 }
 
 func writeError(location string, err error, w http.ResponseWriter) {
@@ -167,20 +168,36 @@ type FetchMessage struct {
 
 // Subscribe pulls requests from a subscription and handles then whenever they
 // are recieved.
-func Subscribe(sub *pubsub.Subscription, messageHandler func(string, int64) error, quit chan bool) error {
+func Subscribe(sub *pubsub.Subscription, messageHandler func(int64) error, quit chan bool) error {
 	ctx, cancel := context.WithCancel(context.Background())
+	//TODO: I don't think this should be an if
 	if err := sub.Receive(ctx, func(c context.Context, m *pubsub.Message) {
-		fm := FetchMessage{}
-		if err := json.Unmarshal(m.Data, &fm); err != nil {
+		idString := string(m.Data)
+		id, err := strconv.ParseInt(idString, 10, 64)
+		if err != nil {
 			log.Println(err)
 			m.Nack()
 		}
-		if err := messageHandler(fm.Username, fm.UserID); err != nil {
+		log.Println(id)
+		//TODO: call message handler
+		if err := messageHandler(id); err != nil {
 			log.Println(err)
 			m.Nack()
 		} else {
 			m.Ack()
 		}
+		//fm := FetchMessage{}
+		////TODO: I think this will throw an error, replaced with the above code
+		//if err := json.Unmarshal(m.Data, &fm); err != nil {
+		//	log.Println(err)
+		//	m.Nack()
+		//}
+		//if err := messageHandler(fm.Username, fm.UserID); err != nil {
+		//	log.Println(err)
+		//	m.Nack()
+		//} else {
+		//	m.Ack()
+		//}
 	}); err != nil {
 		cancel()
 		return err
@@ -196,10 +213,11 @@ func Subscribe(sub *pubsub.Subscription, messageHandler func(string, int64) erro
 // MessageHandlerHO returns a message handler that can handle a username and
 // userid, fetch messages, store the messages in the cloud, then publish
 // another pubsub message.
-func MessageHandlerHO(tClient *twitter.Client, topic *pubsub.Topic, bucket *storage.BucketHandle) func(string, int64) error {
-	return func(username string, userID int64) error {
+//TODO: I removed the user id parameter because we get user id in webserver container. I made it pass the id instead so we never handle a username here
+func MessageHandlerHO(tClient *twitter.Client, topic *pubsub.Topic, bucket *storage.BucketHandle) func(int64) error {
+	return func(userID int64) error {
 		// Get the list of tweets
-		tweets, err := Tweets(tClient, username)
+		tweets, err := Tweets(tClient, userID)
 		if err != nil {
 			return err
 		}
