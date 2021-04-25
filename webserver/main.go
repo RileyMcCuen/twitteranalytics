@@ -55,10 +55,11 @@ func VerifyEnvironment() {
 		"ADDRESS",
 		"TWITTER_SERVICE_BASE_PATH",
 		"PROJECT_ID",
+		"PUB_SUB_TOPIC_ID",
 	}
 	for _, envVar := range envVariables {
 		if _, ok := os.LookupEnv(envVar); !ok {
-			log.Fatalf("Missing environment variable: %s\n", envVar)
+			log.Fatalf("server Missing environment variable: %s\n", envVar)
 		}
 	}
 }

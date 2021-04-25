@@ -4,12 +4,15 @@ google.charts.setOnLoadCallback(() => {
         startLoading()
         const username = document.getElementById('twitter-handle').value;
         //const username = 'elonmusk';
+        console.log(`http://localhost/api/analyse?name=${encodeURI(username)}`)
         const resp = await fetch(
-            `http://localhost/api/analysis?name=${encodeURI(username)}`
+            `http://localhost/api/analyse?name=${encodeURI(username)}`
         );
         if (resp.ok) {
+            console.log(resp)
             document.getElementById("loading-indicator-container").classList.remove("loader")
             const data = await resp.json();
+            console.log(data)
             // const data = testData;
             createDataSummaryTable(username, data);
             createSentimentScoreChart(username, data.Scores);

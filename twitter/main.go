@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -38,7 +39,10 @@ func InitStorage() *storage.BucketHandle {
 	bucket := client.Bucket(os.Getenv("BUCKET"))
 	attrs, err := bucket.Attrs(context.Background())
 	if attrs == nil {
-		log.Fatalf("Bucket has not attributes...\n")
+		if err != nil {
+			fmt.Println(err)
+		}
+		log.Fatalf("Bucket has no attributes...\n")
 	}
 	if err != nil {
 		log.Fatalf("Could not get Bucket information: %v\n", err)
@@ -72,7 +76,7 @@ func VerifyEnvironment() {
 	}
 	for _, envVar := range envVariables {
 		if _, ok := os.LookupEnv(envVar); !ok {
-			log.Fatalf("Missing environment variable: %s\n", envVar)
+			log.Fatalf("twitter Missing environment variable: %s\n", envVar)
 		}
 	}
 }

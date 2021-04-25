@@ -3,6 +3,7 @@ package main
 import (
 	"cloud.google.com/go/pubsub"
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -74,6 +75,7 @@ func VerifyEnvironment() {
 		"BUCKET",
 		"ADDRESS",
 		"PROJECT_ID",
+		"PUB_SUB_SUBSCRIPTION_ID",
 	}
 	for _, envVar := range envVariables {
 		if _, ok := os.LookupEnv(envVar); !ok {
@@ -102,6 +104,7 @@ func main() {
 	sub := ConfigurePubSub(psClient)
 	receiveErr := sub.Receive(ctx, func(ctx context.Context, message *pubsub.Message) {
 		//TODO: add some error handling
+		fmt.Println("got doc from documents")
 		file := string(message.Data)
 		Analyse(bucket, model, ds, file)
 		message.Ack()

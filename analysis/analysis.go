@@ -60,11 +60,14 @@ func analyse(obj *storage.ObjectHandle, model sentiment.Models) *AnalysedDocumen
 	}
 	for i, tweet := range doc.Tweets {
 		analysis := model.SentimentAnalysis(tweet, sentiment.English)
+		log.Println(analysis)
 		newDoc.TweetScores[i] = analysis.Score
 	}
 	if len(newDoc.TweetScores) == 0 {
 		return nil
 	}
+	//fmt.Println(doc.Tweets)
+	log.Println("done")
 	return newDoc
 }
 

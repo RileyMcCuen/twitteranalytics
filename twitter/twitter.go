@@ -184,6 +184,7 @@ func Subscribe(sub *pubsub.Subscription, messageHandler func(int64) error, quit 
 			log.Println(err)
 			m.Nack()
 		} else {
+			fmt.Println("recieved a sub message")
 			m.Ack()
 		}
 		//fm := FetchMessage{}
@@ -199,11 +200,13 @@ func Subscribe(sub *pubsub.Subscription, messageHandler func(int64) error, quit 
 		//	m.Ack()
 		//}
 	}); err != nil {
+		log.Println(err)
 		cancel()
 		return err
 	}
 	// If quit is called then stop getting messages from the subscription
 	go func() {
+		log.Println("quit")
 		<-quit
 		cancel()
 	}()
@@ -233,7 +236,7 @@ func MessageHandlerHO(tClient *twitter.Client, topic *pubsub.Topic, bucket *stor
 		if _, err := res.Get(context.Background()); err != nil {
 			return err
 		}
-
+		fmt.Println("published to documents")
 		return nil
 	}
 }

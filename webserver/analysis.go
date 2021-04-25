@@ -107,8 +107,11 @@ func getData(userID int64, ds *datastore.Client, topic *pubsub.Topic) (interface
 		if _, err := res.Get(context.Background()); err != nil {
 			return nil, err
 		}
+		fmt.Println("published to topic")
 		return struct{ Message string }{Message: "This user has not been analysed yet, they have been submitted to be analysed. Check back later to see more about them."}, nil
 	}
+	fmt.Println("returning a document")
+	fmt.Println(doc.TweetScores)
 	return *doc, nil
 }
 
