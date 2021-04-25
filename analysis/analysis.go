@@ -26,9 +26,15 @@ type (
 	// AnalysedDocument is the actual entity that is stored in the datastore, all of
 	// the tweets have been converted to scores. There is no way to get the original
 	// tweet back from the score at this point.
+	//AnalysedDocument struct {
+	//	DocumentMetaData
+	//	TweetScores []int
+	//}
 	AnalysedDocument struct {
 		DocumentMetaData
-		TweetScores []uint8
+		TweetScores                    []int
+		PositiveTweets, NegativeTweets int
+		AverageScore                   float64
 	}
 )
 
@@ -56,23 +62,35 @@ func analyse(obj *storage.ObjectHandle, model sentiment.Models) *AnalysedDocumen
 			LastTweetID:     doc.LastTweetID,
 			EarliestTweetID: doc.EarliestTweetID,
 		},
-		TweetScores: make([]uint8, len(doc.Tweets)),
+		TweetScores: make([]int, len(doc.Tweets)),
 	}
+	positiveTweetCount := 0
+	negativeTweetCount := 0
+	totalSentimentScore := 0
 	for i, tweet := range doc.Tweets {
 		analysis := model.SentimentAnalysis(tweet, sentiment.English)
-		log.Println(analysis)
-		newDoc.TweetScores[i] = analysis.Score
+		newDoc.TweetScores[i] = int(analysis.Score)
+		if analysis.Score == 0 {
+			negativeTweetCount += 1
+		} else if analysis.Score == 1 {
+			positiveTweetCount += 1
+		}
+		totalSentimentScore += int(analysis.Score)
 	}
+
 	if len(newDoc.TweetScores) == 0 {
 		return nil
 	}
+	newDoc.PositiveTweets = positiveTweetCount
+	newDoc.NegativeTweets = negativeTweetCount
+	newDoc.AverageScore = float64(totalSentimentScore) / float64(len(newDoc.TweetScores))
 	//fmt.Println(doc.Tweets)
-	log.Println("done")
 	return newDoc
 }
 
 // store takes in an AnalysedDocument and updates the necessary entities in
 // the datastore.
+//TODO: this might need changed
 func store(doc *AnalysedDocument, ds *datastore.Client) error {
 	key := datastore.IDKey("User", doc.UserID, nil)
 	tx, err := ds.NewTransaction(context.Background())
@@ -110,6 +128,7 @@ func Analyse(bucket *storage.BucketHandle, model sentiment.Models, ds *datastore
 	if doc != nil {
 		err := store(doc, ds)
 		if err != nil {
+			log.Println("error storing doc: ", err)
 			return
 		}
 	}

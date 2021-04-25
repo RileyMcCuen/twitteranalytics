@@ -3,7 +3,6 @@ package main
 import (
 	"cloud.google.com/go/pubsub"
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -99,12 +98,10 @@ func Health(w http.ResponseWriter, r *http.Request) {
 func main() {
 	// Get clients
 	bucket, model, ds, psClient := InitLibs()
-	//TODO: sub here, call Analyse when the topic has been published to
 	ctx := context.Background()
 	sub := ConfigurePubSub(psClient)
 	receiveErr := sub.Receive(ctx, func(ctx context.Context, message *pubsub.Message) {
 		//TODO: add some error handling
-		fmt.Println("got doc from documents")
 		file := string(message.Data)
 		Analyse(bucket, model, ds, file)
 		message.Ack()
@@ -113,10 +110,6 @@ func main() {
 	if receiveErr != nil {
 		log.Fatalf("Error receiving from publisher: #{err}]\n")
 	}
-
-	//TODO: make this not a go routine
-	//stopExecuting := make(chan bool, 0)
-	//go Analyse(bucket, model, ds, stopExecuting)
 
 	// Handle calls to the health endpoint
 	http.HandleFunc("/api/health", Health)

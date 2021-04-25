@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"github.com/dghubble/go-twitter/twitter"
 	"github.com/dghubble/oauth1"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -27,7 +26,9 @@ type (
 	// tweet back from the score at this point.
 	AnalysedDocument struct {
 		DocumentMetaData
-		TweetScores []uint8
+		TweetScores                    []int
+		PositiveTweets, NegativeTweets int
+		AverageScore                   float64
 	}
 
 	// TwitterCredentials data structore for twitter api credentials
@@ -56,7 +57,6 @@ func GetTwitterClient(credentials *TwitterCredentials) (*twitter.Client, error) 
 	if err != nil {
 		return nil, err
 	}
-	// log.Printf("user's account:\n%+v\n", user)
 	// _ = user //silencing an error for now
 	return client, nil
 }
@@ -77,7 +77,6 @@ func unmarshal(values url.Values) (string, error) {
 // getUser get user info based on the user input (screen name)
 func getUser(client *twitter.Client, username string) (*twitter.User, error) {
 	includeEntities := true
-	log.Println(username)
 	searchParams := twitter.UserSearchParams{
 		Query:           username,
 		Page:            1,
@@ -107,11 +106,8 @@ func getData(userID int64, ds *datastore.Client, topic *pubsub.Topic) (interface
 		if _, err := res.Get(context.Background()); err != nil {
 			return nil, err
 		}
-		fmt.Println("published to topic")
 		return struct{ Message string }{Message: "This user has not been analysed yet, they have been submitted to be analysed. Check back later to see more about them."}, nil
 	}
-	fmt.Println("returning a document")
-	fmt.Println(doc.TweetScores)
 	return *doc, nil
 }
 
