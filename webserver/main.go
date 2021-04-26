@@ -1,12 +1,13 @@
 package main
 
 import (
-	"cloud.google.com/go/pubsub"
 	"context"
 	"io"
 	"log"
 	"net/http"
 	"os"
+
+	"cloud.google.com/go/pubsub"
 
 	"cloud.google.com/go/datastore"
 	"cloud.google.com/go/storage"
@@ -69,6 +70,16 @@ func InitStorage() *storage.BucketHandle {
 	return bucket
 }
 
+// ConfigurePubSub gets a subscription and topic and makes sure that both exist.
+func ConfigurePubSub(psClient *pubsub.Client) *pubsub.Topic {
+	topicID := os.Getenv("PUB_SUB_TOPIC_ID")
+	topic := psClient.Topic(topicID)
+	if ok, err := topic.Exists(context.Background()); !ok || err != nil {
+		log.Fatalf("Topic: %s does not exist. Error: %v\n", topicID, err)
+	}
+	return topic
+}
+
 // VerifyEnvironment verifies that all expected environment variables exist
 func VerifyEnvironment() {
 	envVariables := [...]string{
@@ -78,26 +89,15 @@ func VerifyEnvironment() {
 		"API_SECRET_KEY",
 		"GOOGLE_APPLICATION_CREDENTIALS",
 		"BUCKET",
-		"ADDRESS",
-		"TWITTER_SERVICE_BASE_PATH",
 		"PROJECT_ID",
 		"PUB_SUB_TOPIC_ID",
+		"ADDRESS",
 	}
 	for _, envVar := range envVariables {
 		if _, ok := os.LookupEnv(envVar); !ok {
 			log.Fatalf("server Missing environment variable: %s\n", envVar)
 		}
 	}
-}
-
-// ConfigurePubSub gets a subscription and topic and makes sure that both exist.
-func ConfigurePubSub(psClient *pubsub.Client) *pubsub.Topic {
-	topicID := os.Getenv("PUB_SUB_TOPIC_ID")
-	topic := psClient.Topic(topicID)
-	if ok, err := topic.Exists(context.Background()); !ok || err != nil {
-		log.Fatalf("Topic: %s does not exist. Error: %v\n", topicID, err)
-	}
-	return topic
 }
 
 // InitLibs prepares external libraries with credentials to make API calls.
@@ -123,17 +123,37 @@ func Health(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Healthy"))
 }
 
+func LogHandlerHO(fun http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		log.Println(r.RequestURI)
+		fun(w, r)
+	}
+}
+
+type LogHandler struct {
+	handler http.Handler
+}
+
+func (lh LogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	log.Println(r.RequestURI)
+	lh.handler.ServeHTTP(w, r)
+}
+
+func NewLogHandler(handler http.Handler) http.Handler {
+	return LogHandler{handler}
+}
+
 // main starts up the webserver.
 func main() {
 	// Get clients
 	tClient, ds, bucket, psClient := InitLibs()
 	topic := ConfigurePubSub(psClient)
 	// Handle requests for static files
-	http.Handle("/static/", http.StripPrefix("/static", http.FileServer(http.Dir("./static"))))
+	http.Handle("/static/", NewLogHandler(http.StripPrefix("/static", http.FileServer(http.Dir("../static")))))
 	// Handle calls to the analysis endpoint
-	http.HandleFunc("/api/analyse", GetAnalysisHO(tClient, ds, topic))
+	http.HandleFunc("/api/analyse", LogHandlerHO(GetAnalysisHO(tClient, ds, topic)))
 	// Handle calls to get list of users that have already been analysed
-	http.HandleFunc("/api/user", UsersHO(bucket))
+	http.HandleFunc("/api/users", UsersHO(bucket))
 	// Handle calls to the health endpoint
 	http.HandleFunc("/api/health", Health)
 	log.Fatal(http.ListenAndServe(os.Getenv("ADDRESS"), nil))
