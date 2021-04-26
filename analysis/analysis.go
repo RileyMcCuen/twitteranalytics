@@ -66,7 +66,7 @@ const (
 )
 
 // changesKey is the key to an entity that indicates whether any updates to the database have happened
-var changesKey = datastore.IDKey(changesKind, 0, nil)
+var changesKey = datastore.IDKey(changesKind, 1, nil)
 
 // analyse performs analysis on all of the tweets in an object in cloud storage
 // using the model, then returns all of the new data.
@@ -87,11 +87,7 @@ func analyse(obj *storage.ObjectHandle, model sentiment.Models) *AnalysedDocumen
 		return nil
 	}
 	newDoc := &AnalysedDocument{
-		DocumentMetaData: DocumentMetaData{
-			UserID:          doc.UserID,
-			LastTweetID:     doc.LastTweetID,
-			EarliestTweetID: doc.EarliestTweetID,
-		},
+		DocumentMetaData: doc.DocumentMetaData,
 	}
 	for _, tweet := range doc.Tweets {
 		analysis := model.SentimentAnalysis(tweet, sentiment.English)
@@ -144,10 +140,9 @@ func store(doc *AnalysedDocument, ds *datastore.Client) error {
 // sentiment analysis on them. After all of the analysis is complete, the new
 // data is pushed to the datastore.
 func Analyse(bucket *storage.BucketHandle, model sentiment.Models, ds *datastore.Client, fileName string) {
-	doc := analyse(bucket.Object(fileName), model)
-	if doc != nil {
-		err := store(doc, ds)
-		if err != nil {
+	log.Printf("File to be analysed: %s\n", fileName)
+	if doc := analyse(bucket.Object(fileName), model); doc != nil {
+		if err := store(doc, ds); err != nil {
 			log.Println("error storing doc: ", err)
 			return
 		}

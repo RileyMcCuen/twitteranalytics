@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"strconv"
 
 	"cloud.google.com/go/pubsub"
 
@@ -81,6 +80,28 @@ func GetTwitterClient(credentials *TwitterCredentials) (*twitter.Client, error) 
 	return client, nil
 }
 
+func createUserTimelineParamsSince(userID int64, sinceID int64) *twitter.UserTimelineParams {
+	return &twitter.UserTimelineParams{
+		UserID:          userID,
+		Count:           MaxResults,
+		TrimUser:        PTrue(),
+		ExcludeReplies:  PTrue(),
+		IncludeRetweets: PFalse(),
+		SinceID:         sinceID,
+	}
+}
+
+func createUserTimelineParamsBefore(userID int64, maxID int64) *twitter.UserTimelineParams {
+	return &twitter.UserTimelineParams{
+		UserID:          userID,
+		Count:           MaxResults,
+		TrimUser:        PTrue(),
+		ExcludeReplies:  PTrue(),
+		IncludeRetweets: PFalse(),
+		MaxID:           maxID,
+	}
+}
+
 // getTweets performs calls the Twitter API to get tweets fitting parameters
 // specified in data. The tweets are passed into the tweets channels.
 func getTweets(client *twitter.Client, username string, userID int64) (*CleanDocument, error) {
@@ -93,18 +114,13 @@ func getTweets(client *twitter.Client, username string, userID int64) (*CleanDoc
 		EarliestTweetID: math.MaxInt64,
 		Tweets:          make([]string, 0),
 	}
+	maxID := int64(0)
 	for ok := true; ok; ok = len(resp) > 0 {
-		resp, _, err = client.Timelines.UserTimeline(&twitter.UserTimelineParams{
-			UserID:          userID,
-			Count:           MaxResults,
-			TrimUser:        PTrue(),
-			ExcludeReplies:  PTrue(),
-			IncludeRetweets: PFalse(),
-		})
+		resp, _, err = client.Timelines.UserTimeline(createUserTimelineParamsBefore(userID, maxID))
 		count += len(resp)
 		// Create better error reporting mechanism
 		if err != nil {
-			log.Printf("Encountered error when getting tweets for %s: %v", username, err)
+			log.Printf("Encountered error when getting tweets for (%s): %v", username, err)
 			return doc, err
 		}
 
@@ -117,6 +133,7 @@ func getTweets(client *twitter.Client, username string, userID int64) (*CleanDoc
 			}
 			doc.Tweets = append(doc.Tweets, tweet.Text)
 		}
+		maxID = doc.EarliestTweetID - 1
 	}
 	if doc.LastTweetID == 0 && doc.EarliestTweetID == math.MaxInt64 {
 		return doc, errors.New("no tweets were found, so no analysis can be done")
@@ -147,23 +164,9 @@ func Subscribe(sub *pubsub.Subscription, messageHandler MessageHandler, quit cha
 	// the bat then this if statement will catch it and propogate it to the main
 	// method for reporting.
 	if err := sub.Receive(ctx, func(c context.Context, m *pubsub.Message) {
-		idString := string(m.Data)
-		id, err := strconv.ParseInt(idString, 10, 64)
-		if err != nil {
-			log.Println(err)
-			m.Nack()
-		}
-		log.Println(id)
-		//TODO: call message handler
-		if err := messageHandler("", id); err != nil {
-			log.Println(err)
-			m.Nack()
-		} else {
-			fmt.Println("recieved a sub message")
-			m.Ack()
-		}
 		fm := FetchMessage{}
 		//TODO: I think this will throw an error, replaced with the above code
+		log.Printf("DATA: %s\n", m.Data)
 		if err := json.Unmarshal(m.Data, &fm); err != nil {
 			log.Println(err)
 			m.Nack()

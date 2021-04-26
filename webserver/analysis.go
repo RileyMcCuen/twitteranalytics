@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 
@@ -18,6 +19,7 @@ type (
 	// DocumentMetaData is all of the data aside form tweets describing an entity
 	// in the datastore.
 	DocumentMetaData struct {
+		Username                             string
 		UserID, LastTweetID, EarliestTweetID int64
 	}
 
@@ -107,6 +109,7 @@ func getUser(client *twitter.Client, username string) (*twitter.User, error) {
 func getData(username string, userID int64, ds *datastore.Client, topic *pubsub.Topic) (interface{}, error) {
 	doc := &AnalysedDocument{}
 	if err := ds.Get(context.Background(), datastore.IDKey("User", userID, nil), doc); err != nil {
+		log.Println(err)
 		fm := &FetchMessage{
 			Username: username,
 			UserID:   userID,
