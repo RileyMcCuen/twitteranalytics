@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"net/url"
 	"strconv"
 
 	"cloud.google.com/go/pubsub"
@@ -123,24 +122,6 @@ func getTweets(client *twitter.Client, username string, userID int64) (*CleanDoc
 		return doc, errors.New("no tweets were found, so no analysis can be done")
 	}
 	return doc, nil
-}
-
-// unmarshal gets the query parameters from the get request and returns them if
-// they are all valid, otherwise it returns an error
-func unmarshal(values url.Values) (string, int64, error) {
-	username := values.Get("name")
-	if username == "" {
-		return "", 0, errors.New("username was empty, but should not have been")
-	}
-	rawUserID := values.Get("id")
-	if rawUserID == "" {
-		return "", 0, errors.New("id was empty, but should not have been")
-	}
-	userID, err := strconv.ParseInt(rawUserID, 10, 64)
-	if err != nil {
-		return "", 0, fmt.Errorf("%v; userID was not a valid int64: (%s)", err, rawUserID)
-	}
-	return username, userID, nil
 }
 
 // storeTweets writes the document containing tweet information in a document

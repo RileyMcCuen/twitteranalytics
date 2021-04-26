@@ -1,12 +1,13 @@
 package main
 
 import (
-	"cloud.google.com/go/datastore"
-	"cloud.google.com/go/storage"
 	"context"
 	"encoding/json"
-	"github.com/cdipaolo/sentiment"
 	"log"
+
+	"cloud.google.com/go/datastore"
+	"cloud.google.com/go/storage"
+	"github.com/cdipaolo/sentiment"
 )
 
 type (
@@ -24,16 +25,10 @@ type (
 		Tweets []string
 	}
 
-	// AnalysedDocument is the actual entity that is stored in the datastore, all of
-	// the tweets have been converted to scores. There is no way to get the original
-	// tweet back from the score at this point.
-	//AnalysedDocument struct {
-	//	DocumentMetaData
-	//	TweetScores []int
-	//}
+	// AnalysedDocument is the actual entity that is stored in the datastore. It
+	// contains metadata about the user and metrics about their tweets sentiment.
 	AnalysedDocument struct {
 		DocumentMetaData
-		TweetScores                    []int
 		PositiveTweets, NegativeTweets int
 		AverageScore                   float64
 	}
@@ -42,6 +37,28 @@ type (
 	// added since the last time Changes was checked and toggled.
 	Changes struct{ ChangesMade bool }
 )
+
+// CalculateAverage calculates the average sentiment of a document.
+func (d *AnalysedDocument) CalculateAverage() *AnalysedDocument {
+	score := float64((-1 * d.NegativeTweets) + d.PositiveTweets)
+	count := float64(d.NegativeTweets + d.PositiveTweets)
+	d.AverageScore = score / count
+	return d
+}
+
+// Merge merges o's information into d. d is modified in the process.
+func (d *AnalysedDocument) Merge(o *AnalysedDocument) *AnalysedDocument {
+	// combine new data and old data
+	if o.EarliestTweetID < d.EarliestTweetID {
+		d.EarliestTweetID = o.EarliestTweetID
+	}
+	if o.LastTweetID > d.LastTweetID {
+		d.LastTweetID = o.LastTweetID
+	}
+	d.NegativeTweets += o.NegativeTweets
+	d.PositiveTweets += o.PositiveTweets
+	return d.CalculateAverage()
+}
 
 const (
 	changesKind = "Changes"
@@ -75,29 +92,16 @@ func analyse(obj *storage.ObjectHandle, model sentiment.Models) *AnalysedDocumen
 			LastTweetID:     doc.LastTweetID,
 			EarliestTweetID: doc.EarliestTweetID,
 		},
-		TweetScores: make([]int, len(doc.Tweets)),
 	}
-	positiveTweetCount := 0
-	negativeTweetCount := 0
-	totalSentimentScore := 0
-	for i, tweet := range doc.Tweets {
+	for _, tweet := range doc.Tweets {
 		analysis := model.SentimentAnalysis(tweet, sentiment.English)
-		newDoc.TweetScores[i] = int(analysis.Score)
 		if analysis.Score == 0 {
-			negativeTweetCount += 1
+			newDoc.NegativeTweets += 1
 		} else if analysis.Score == 1 {
-			positiveTweetCount += 1
+			newDoc.PositiveTweets += 1
 		}
-		totalSentimentScore += int(analysis.Score)
 	}
-
-	if len(newDoc.TweetScores) == 0 {
-		return nil
-	}
-	newDoc.PositiveTweets = positiveTweetCount
-	newDoc.NegativeTweets = negativeTweetCount
-	newDoc.AverageScore = float64(totalSentimentScore) / float64(len(newDoc.TweetScores))
-	//fmt.Println(doc.Tweets)
+	newDoc.AverageScore = float64((-1*newDoc.NegativeTweets)+newDoc.PositiveTweets) / float64(newDoc.NegativeTweets+newDoc.PositiveTweets)
 	return newDoc
 }
 
@@ -121,14 +125,7 @@ func store(doc *AnalysedDocument, ds *datastore.Client) error {
 		// not add them to the database as they have already been analysed.
 		return tx.Rollback()
 	} else {
-		// combine new data and old data
-		if oldDoc.EarliestTweetID < doc.EarliestTweetID {
-			doc.EarliestTweetID = oldDoc.EarliestTweetID
-		}
-		if oldDoc.LastTweetID > doc.LastTweetID {
-			doc.LastTweetID = oldDoc.LastTweetID
-		}
-		doc.TweetScores = append(doc.TweetScores, oldDoc.TweetScores...)
+		doc = doc.Merge(oldDoc)
 	}
 	// put the entity in the db
 	if _, err := tx.Put(key, doc); err != nil {
@@ -155,33 +152,4 @@ func Analyse(bucket *storage.BucketHandle, model sentiment.Models, ds *datastore
 			return
 		}
 	}
-	// while the quit signal has not been sent, keep trying to get more documents
-	//for len(stop) == 0 {
-	//	// Get all of the names of all objects in the bucket
-	//	iter := bucket.Objects(context.Background(), &storage.Query{
-	//		Versions:   false,
-	//		Projection: storage.ProjectionNoACL,
-	//	})
-	//	names := make([]string, 0)
-	//	for obj, err := iter.Next(); err == nil && obj != nil; obj, err = iter.Next() {
-	//		names = append(names, obj.Name)
-	//	}
-	//	// If there are no names, then sleep for a bit then check again
-	//	if len(names) == 0 {
-	//		time.Sleep(10 * time.Second)
-	//	} else {
-	//		// Otherwise, read in the names one at a time and process the objects
-	//		for _, name := range names {
-	//			// If the quite signal has been sent before reading in any names
-	//			// then stop analysing right now.
-	//			if len(stop) > 0 {
-	//				return
-	//			}
-	//			doc := analyse(bucket.Object(name), model)
-	//			if doc != nil {
-	//				store(doc, ds)
-	//			}
-	//		}
-	//	}
-	//}
 }
