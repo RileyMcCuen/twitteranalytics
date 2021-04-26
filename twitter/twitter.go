@@ -9,6 +9,9 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"strconv"
+
+	"cloud.google.com/go/pubsub"
 
 	"cloud.google.com/go/storage"
 	"github.com/dghubble/go-twitter/twitter"
@@ -122,12 +125,12 @@ func getTweets(client *twitter.Client, userID int64) (*CleanDocument, error) {
 }
 
 // Tweets gets a list of tweets specified by username
-func Tweets(client *twitter.Client, username string) (*CleanDocument, error) {
-	user, err := getUser(client, username)
-	if err != nil {
-		return nil, err
-	}
-	return getTweets(client, user.ID)
+func Tweets(client *twitter.Client, userID int64) (*CleanDocument, error) {
+	//user, err := getUser(client, username)
+	//if err != nil {
+	//	return nil, err
+	//}
+	return getTweets(client, userID)
 }
 
 func writeError(location string, err error, w http.ResponseWriter) {
@@ -158,39 +161,82 @@ func storeTweets(bucket *storage.BucketHandle, doc *CleanDocument) (string, erro
 	return fileName, nil
 }
 
-func TweetsHO(client *twitter.Client, bucket *storage.BucketHandle) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// Check request method
-		if r.Method != http.MethodGet {
-			// Must be a GET request
-			writeError("Method", errors.New("/api/analysis only accepts GET requests"), w)
-			return
-		}
-		// Unmarshal the request into data variable
-		data, err := unmarshal(r.URL.Query())
+type FetchMessage struct {
+	Username string
+	UserID   int64
+}
+
+// Subscribe pulls requests from a subscription and handles then whenever they
+// are recieved.
+func Subscribe(sub *pubsub.Subscription, messageHandler func(int64) error, quit chan bool) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	//TODO: I don't think this should be an if
+	if err := sub.Receive(ctx, func(c context.Context, m *pubsub.Message) {
+		idString := string(m.Data)
+		id, err := strconv.ParseInt(idString, 10, 64)
 		if err != nil {
-			writeError("Unmarshal", err, w)
+			log.Println(err)
+			m.Nack()
 		}
+		log.Println(id)
+		//TODO: call message handler
+		if err := messageHandler(id); err != nil {
+			log.Println(err)
+			m.Nack()
+		} else {
+			fmt.Println("recieved a sub message")
+			m.Ack()
+		}
+		//fm := FetchMessage{}
+		////TODO: I think this will throw an error, replaced with the above code
+		//if err := json.Unmarshal(m.Data, &fm); err != nil {
+		//	log.Println(err)
+		//	m.Nack()
+		//}
+		//if err := messageHandler(fm.Username, fm.UserID); err != nil {
+		//	log.Println(err)
+		//	m.Nack()
+		//} else {
+		//	m.Ack()
+		//}
+	}); err != nil {
+		log.Println(err)
+		cancel()
+		return err
+	}
+	// If quit is called then stop getting messages from the subscription
+	go func() {
+		log.Println("quit")
+		<-quit
+		cancel()
+	}()
+	return nil
+}
+
+// MessageHandlerHO returns a message handler that can handle a username and
+// userid, fetch messages, store the messages in the cloud, then publish
+// another pubsub message.
+//TODO: I removed the user id parameter because we get user id in webserver container. I made it pass the id instead so we never handle a username here
+func MessageHandlerHO(tClient *twitter.Client, topic *pubsub.Topic, bucket *storage.BucketHandle) func(int64) error {
+	return func(userID int64) error {
 		// Get the list of tweets
-		tweets, err := Tweets(client, data)
+		tweets, err := Tweets(tClient, userID)
 		if err != nil {
-			writeError("Tweets", err, w)
-			return
+			return err
 		}
 		message, err := storeTweets(bucket, tweets)
 		if err != nil {
-			writeError("Store", err, w)
-			return
+			return err
 		}
-		// Marshal the analysis data into JSON format for transport
-		ret, err := json.Marshal(struct{ Message string }{Message: message})
-		if err != nil {
-			writeError("Marshal", err, w)
-			return
+
+		res := topic.Publish(context.Background(), &pubsub.Message{
+			Data: []byte(message),
+		})
+
+		if _, err := res.Get(context.Background()); err != nil {
+			return err
 		}
-		// Send the json data to the requester
-		w.WriteHeader(http.StatusCreated)
-		w.Header().Add("Content-Type", "application/json")
-		w.Write(ret)
+		fmt.Println("published to documents")
+		return nil
 	}
 }

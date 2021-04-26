@@ -5,6 +5,8 @@ $env:API_KEY = ""
 $env:API_SECRET_KEY = ""
 $env:GOOGLE_APPLICATION_CREDENTIALS = ""
 $env:BUCKET = "twittertimelines"
+$env:PUB_SUB_SUBSCRIPTION_ID = "twitter-fetch"
+$env:PUB_SUB_TOPIC_ID = "twitter-documents"
 $env:ADDRESS = "0.0.0.0:8001"
 go build -o ../build/twitter.exe ..
 Write-Output "Running..."

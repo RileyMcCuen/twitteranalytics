@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cloud.google.com/go/pubsub"
 	"context"
 	"log"
 	"net/http"
@@ -33,6 +34,16 @@ func InitDatastore() *datastore.Client {
 	return store
 }
 
+func InitPubSub() *pubsub.Client {
+	ctx := context.Background()
+	client, err := pubsub.NewClient(ctx, os.Getenv("PROJECT_ID"))
+	if err != nil {
+		log.Fatalf("Could not set up pub sub client: #{err}\n")
+	}
+	return client
+}
+
+//TODO: update this
 // VerifyEnvironment verifies that all expected environment variables exist
 func VerifyEnvironment() {
 	envVariables := [...]string{
@@ -44,18 +55,29 @@ func VerifyEnvironment() {
 		"ADDRESS",
 		"TWITTER_SERVICE_BASE_PATH",
 		"PROJECT_ID",
+		"PUB_SUB_TOPIC_ID",
 	}
 	for _, envVar := range envVariables {
 		if _, ok := os.LookupEnv(envVar); !ok {
-			log.Fatalf("Missing environment variable: %s\n", envVar)
+			log.Fatalf("server Missing environment variable: %s\n", envVar)
 		}
 	}
 }
 
+// ConfigurePubSub gets a subscription and topic and makes sure that both exist.
+func ConfigurePubSub(psClient *pubsub.Client) *pubsub.Topic {
+	topicID := os.Getenv("PUB_SUB_TOPIC_ID")
+	topic := psClient.Topic(topicID)
+	if ok, err := topic.Exists(context.Background()); !ok || err != nil {
+		log.Fatalf("Topic: %s does not exist. Error: %v\n", topicID, err)
+	}
+	return topic
+}
+
 // InitLibs prepares external libraries with credentials to make API calls.
-func InitLibs() (*twitter.Client, *datastore.Client) {
+func InitLibs() (*twitter.Client, *datastore.Client, *pubsub.Client) {
 	VerifyEnvironment()
-	return InitTwitter(), InitDatastore()
+	return InitTwitter(), InitDatastore(), InitPubSub()
 }
 
 // Health is a probe endpoint, it always returns StatusOK and "Healthy".
@@ -66,12 +88,12 @@ func Health(w http.ResponseWriter, r *http.Request) {
 // main starts up the webserver.
 func main() {
 	// Get clients
-	tClient, ds := InitLibs()
-
+	tClient, ds, psClient := InitLibs()
+	topic := ConfigurePubSub(psClient)
 	// Handle requests for static files
 	http.Handle("/static/", http.StripPrefix("/static", http.FileServer(http.Dir("./static"))))
 	// Handle calls to the analysis endpoint
-	http.HandleFunc("/api/analyse", GetAnalysisHO(tClient, ds, os.Getenv("TWITTER_SERVICE_BASE_PATH")))
+	http.HandleFunc("/api/analyse", GetAnalysisHO(tClient, ds, topic))
 	// Handle calls to get users that have already been analysed
 	// http.HandleFunc("/api/analysed", TODO)
 	// Handle calls to the health endpoint

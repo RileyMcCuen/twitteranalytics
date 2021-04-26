@@ -1,14 +1,12 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
-	"log"
-	"time"
-
 	"cloud.google.com/go/datastore"
 	"cloud.google.com/go/storage"
+	"context"
+	"encoding/json"
 	"github.com/cdipaolo/sentiment"
+	"log"
 )
 
 type (
@@ -28,9 +26,15 @@ type (
 	// AnalysedDocument is the actual entity that is stored in the datastore, all of
 	// the tweets have been converted to scores. There is no way to get the original
 	// tweet back from the score at this point.
+	//AnalysedDocument struct {
+	//	DocumentMetaData
+	//	TweetScores []int
+	//}
 	AnalysedDocument struct {
 		DocumentMetaData
-		TweetScores []uint8
+		TweetScores                    []int
+		PositiveTweets, NegativeTweets int
+		AverageScore                   float64
 	}
 )
 
@@ -58,20 +62,35 @@ func analyse(obj *storage.ObjectHandle, model sentiment.Models) *AnalysedDocumen
 			LastTweetID:     doc.LastTweetID,
 			EarliestTweetID: doc.EarliestTweetID,
 		},
-		TweetScores: make([]uint8, len(doc.Tweets)),
+		TweetScores: make([]int, len(doc.Tweets)),
 	}
+	positiveTweetCount := 0
+	negativeTweetCount := 0
+	totalSentimentScore := 0
 	for i, tweet := range doc.Tweets {
 		analysis := model.SentimentAnalysis(tweet, sentiment.English)
-		newDoc.TweetScores[i] = analysis.Score
+		newDoc.TweetScores[i] = int(analysis.Score)
+		if analysis.Score == 0 {
+			negativeTweetCount += 1
+		} else if analysis.Score == 1 {
+			positiveTweetCount += 1
+		}
+		totalSentimentScore += int(analysis.Score)
 	}
+
 	if len(newDoc.TweetScores) == 0 {
 		return nil
 	}
+	newDoc.PositiveTweets = positiveTweetCount
+	newDoc.NegativeTweets = negativeTweetCount
+	newDoc.AverageScore = float64(totalSentimentScore) / float64(len(newDoc.TweetScores))
+	//fmt.Println(doc.Tweets)
 	return newDoc
 }
 
 // store takes in an AnalysedDocument and updates the necessary entities in
 // the datastore.
+//TODO: this might need changed
 func store(doc *AnalysedDocument, ds *datastore.Client) error {
 	key := datastore.IDKey("User", doc.UserID, nil)
 	tx, err := ds.NewTransaction(context.Background())
@@ -104,34 +123,42 @@ func store(doc *AnalysedDocument, ds *datastore.Client) error {
 // Analyse reads roughly cleaned tweets from the bucket and then performs
 // sentiment analysis on them. After all of the analysis is complete, the new
 // data is pushed to the datastore.
-func Analyse(bucket *storage.BucketHandle, model sentiment.Models, ds *datastore.Client, stop chan bool) {
-	// while the quit signal has not been sent, keep trying to get more documents
-	for len(stop) == 0 {
-		// Get all of the names of all objects in the bucket
-		iter := bucket.Objects(context.Background(), &storage.Query{
-			Versions:   false,
-			Projection: storage.ProjectionNoACL,
-		})
-		names := make([]string, 0)
-		for obj, err := iter.Next(); err == nil && obj != nil; obj, err = iter.Next() {
-			names = append(names, obj.Name)
-		}
-		// If there are no names, then sleep for a bit then check again
-		if len(names) == 0 {
-			time.Sleep(10 * time.Second)
-		} else {
-			// Otherwise, read in the names one at a time and process the objects
-			for _, name := range names {
-				// If the quite signal has been sent before reading in any names
-				// then stop analysing right now.
-				if len(stop) > 0 {
-					return
-				}
-				doc := analyse(bucket.Object(name), model)
-				if doc != nil {
-					store(doc, ds)
-				}
-			}
+func Analyse(bucket *storage.BucketHandle, model sentiment.Models, ds *datastore.Client, fileName string) {
+	doc := analyse(bucket.Object(fileName), model)
+	if doc != nil {
+		err := store(doc, ds)
+		if err != nil {
+			log.Println("error storing doc: ", err)
+			return
 		}
 	}
+	// while the quit signal has not been sent, keep trying to get more documents
+	//for len(stop) == 0 {
+	//	// Get all of the names of all objects in the bucket
+	//	iter := bucket.Objects(context.Background(), &storage.Query{
+	//		Versions:   false,
+	//		Projection: storage.ProjectionNoACL,
+	//	})
+	//	names := make([]string, 0)
+	//	for obj, err := iter.Next(); err == nil && obj != nil; obj, err = iter.Next() {
+	//		names = append(names, obj.Name)
+	//	}
+	//	// If there are no names, then sleep for a bit then check again
+	//	if len(names) == 0 {
+	//		time.Sleep(10 * time.Second)
+	//	} else {
+	//		// Otherwise, read in the names one at a time and process the objects
+	//		for _, name := range names {
+	//			// If the quite signal has been sent before reading in any names
+	//			// then stop analysing right now.
+	//			if len(stop) > 0 {
+	//				return
+	//			}
+	//			doc := analyse(bucket.Object(name), model)
+	//			if doc != nil {
+	//				store(doc, ds)
+	//			}
+	//		}
+	//	}
+	//}
 }

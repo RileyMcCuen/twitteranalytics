@@ -1,18 +1,17 @@
 package main
 
 import (
+	"cloud.google.com/go/datastore"
+	"cloud.google.com/go/pubsub"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
-	"net/http"
-	"net/url"
-	"strings"
-
-	"cloud.google.com/go/datastore"
 	"github.com/dghubble/go-twitter/twitter"
 	"github.com/dghubble/oauth1"
+	"net/http"
+	"net/url"
+	"strconv"
 )
 
 type (
@@ -27,7 +26,9 @@ type (
 	// tweet back from the score at this point.
 	AnalysedDocument struct {
 		DocumentMetaData
-		TweetScores []uint8
+		TweetScores                    []int
+		PositiveTweets, NegativeTweets int
+		AverageScore                   float64
 	}
 
 	// TwitterCredentials data structore for twitter api credentials
@@ -56,7 +57,6 @@ func GetTwitterClient(credentials *TwitterCredentials) (*twitter.Client, error) 
 	if err != nil {
 		return nil, err
 	}
-	// log.Printf("user's account:\n%+v\n", user)
 	// _ = user //silencing an error for now
 	return client, nil
 }
@@ -77,7 +77,6 @@ func unmarshal(values url.Values) (string, error) {
 // getUser get user info based on the user input (screen name)
 func getUser(client *twitter.Client, username string) (*twitter.User, error) {
 	includeEntities := true
-	log.Println(username)
 	searchParams := twitter.UserSearchParams{
 		Query:           username,
 		Page:            1,
@@ -94,17 +93,25 @@ func getUser(client *twitter.Client, username string) (*twitter.User, error) {
 	return &users[0], nil
 }
 
-func getData(userID int64, ds *datastore.Client, tsbp string) (interface{}, error) {
+func getData(userID int64, ds *datastore.Client, topic *pubsub.Topic) (interface{}, error) {
 	doc := &AnalysedDocument{}
 	if err := ds.Get(context.Background(), datastore.IDKey("User", userID, nil), doc); err != nil {
 		// make call to twitter service to do analysis
-		http.Post(fmt.Sprintf("%s?name=%s", tsbp, userID), "", strings.NewReader(""))
+		//http.Post(fmt.Sprintf("%s?name=%s", tsbp, userID), "", strings.NewReader(""))
+		message := strconv.FormatInt(userID, 10)
+		res := topic.Publish(context.Background(), &pubsub.Message{
+			Data: []byte(message),
+		})
+
+		if _, err := res.Get(context.Background()); err != nil {
+			return nil, err
+		}
 		return struct{ Message string }{Message: "This user has not been analysed yet, they have been submitted to be analysed. Check back later to see more about them."}, nil
 	}
 	return *doc, nil
 }
 
-func GetAnalysisHO(tClient *twitter.Client, ds *datastore.Client, tsbp string) http.HandlerFunc {
+func GetAnalysisHO(tClient *twitter.Client, ds *datastore.Client, topic *pubsub.Topic) http.HandlerFunc {
 	// GetAnalysis pulls data from twitter given a username, then passes the
 	// tweets off to Google Natural Language Processing API which classifies them
 	// and analyses sentiment.
@@ -124,7 +131,7 @@ func GetAnalysisHO(tClient *twitter.Client, ds *datastore.Client, tsbp string) h
 		if err != nil {
 			writeError("User", err, w)
 		}
-		data, err := getData(user.ID, ds, tsbp)
+		data, err := getData(user.ID, ds, topic)
 		if err != nil {
 			writeError("Data", err, w)
 		}
