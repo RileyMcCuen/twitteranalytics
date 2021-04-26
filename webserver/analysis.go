@@ -38,6 +38,13 @@ type (
 		AccessToken       string
 		AccessTokenSecret string
 	}
+
+	// FetchMessage contains the data necessary to run a fetch using the Twitter
+	// API to get tweets.
+	FetchMessage struct {
+		Username string
+		UserID   int64
+	}
 )
 
 // GetTwitterClient function to authorize twitter api and create a client
@@ -100,9 +107,16 @@ func getUser(client *twitter.Client, username string) (*twitter.User, error) {
 func getData(username string, userID int64, ds *datastore.Client, topic *pubsub.Topic) (interface{}, error) {
 	doc := &AnalysedDocument{}
 	if err := ds.Get(context.Background(), datastore.IDKey("User", userID, nil), doc); err != nil {
-		message := fmt.Sprintf("{\"UserID\":%d,\"Username\":\"%s\"", userID, username)
+		fm := &FetchMessage{
+			Username: username,
+			UserID:   userID,
+		}
+		message, err := json.Marshal(fm)
+		if err != nil {
+			return nil, err
+		}
 		res := topic.Publish(context.Background(), &pubsub.Message{
-			Data: []byte(message),
+			Data: message,
 		})
 
 		if _, err := res.Get(context.Background()); err != nil {

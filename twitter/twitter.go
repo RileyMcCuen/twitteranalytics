@@ -41,6 +41,7 @@ type (
 		UserID   int64
 	}
 
+	// MessageHandler handles messages incoming from a PubSub topic.
 	MessageHandler func(string, int64) error
 )
 
@@ -161,7 +162,9 @@ func storeTweets(bucket *storage.BucketHandle, doc *CleanDocument) (string, erro
 // are recieved.
 func Subscribe(sub *pubsub.Subscription, messageHandler MessageHandler, quit chan bool) error {
 	ctx, cancel := context.WithCancel(context.Background())
-	//TODO: I don't think this should be an if
+	// This is an if statement because if Receive returns an error right off the
+	// the bat then this if statement will catch it and propogate it to the main
+	// method for reporting.
 	if err := sub.Receive(ctx, func(c context.Context, m *pubsub.Message) {
 		idString := string(m.Data)
 		id, err := strconv.ParseInt(idString, 10, 64)
@@ -178,18 +181,18 @@ func Subscribe(sub *pubsub.Subscription, messageHandler MessageHandler, quit cha
 			fmt.Println("recieved a sub message")
 			m.Ack()
 		}
-		//fm := FetchMessage{}
-		////TODO: I think this will throw an error, replaced with the above code
-		//if err := json.Unmarshal(m.Data, &fm); err != nil {
-		//	log.Println(err)
-		//	m.Nack()
-		//}
-		//if err := messageHandler(fm.Username, fm.UserID); err != nil {
-		//	log.Println(err)
-		//	m.Nack()
-		//} else {
-		//	m.Ack()
-		//}
+		fm := FetchMessage{}
+		//TODO: I think this will throw an error, replaced with the above code
+		if err := json.Unmarshal(m.Data, &fm); err != nil {
+			log.Println(err)
+			m.Nack()
+		}
+		if err := messageHandler(fm.Username, fm.UserID); err != nil {
+			log.Println(err)
+			m.Nack()
+		} else {
+			m.Ack()
+		}
 	}); err != nil {
 		log.Println(err)
 		cancel()
