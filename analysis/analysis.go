@@ -13,6 +13,7 @@ type (
 	// DocumentMetaData is all of the data aside form tweets describing an entity
 	// in the datastore.
 	DocumentMetaData struct {
+		Username                             string
 		UserID, LastTweetID, EarliestTweetID int64
 	}
 
@@ -36,7 +37,19 @@ type (
 		PositiveTweets, NegativeTweets int
 		AverageScore                   float64
 	}
+
+	// Changes is the flag in the database indicating whether new data has been
+	// added since the last time Changes was checked and toggled.
+	Changes struct{ ChangesMade bool }
 )
+
+const (
+	changesKind = "Changes"
+	userKind    = "User"
+)
+
+// changesKey is the key to an entity that indicates whether any updates to the database have happened
+var changesKey = datastore.IDKey(changesKind, 0, nil)
 
 // analyse performs analysis on all of the tweets in an object in cloud storage
 // using the model, then returns all of the new data.
@@ -92,15 +105,21 @@ func analyse(obj *storage.ObjectHandle, model sentiment.Models) *AnalysedDocumen
 // the datastore.
 //TODO: this might need changed
 func store(doc *AnalysedDocument, ds *datastore.Client) error {
-	key := datastore.IDKey("User", doc.UserID, nil)
+	key := datastore.IDKey(userKind, doc.UserID, nil)
 	tx, err := ds.NewTransaction(context.Background())
 	if err != nil {
 		return err
 	}
 	// get the old entity
 	oldDoc := &AnalysedDocument{}
+	// TODO: Verify that we are making objects correctly, look up Update instead of Get->Put
 	if err := tx.Get(key, oldDoc); err != nil {
 		// pass, I think this means object is not in db yet, should be consistent
+	} else if oldDoc.EarliestTweetID < doc.EarliestTweetID &&
+		oldDoc.LastTweetID > doc.LastTweetID {
+		// if all of the tweets in this batch have already been covered then do
+		// not add them to the database as they have already been analysed.
+		return tx.Rollback()
 	} else {
 		// combine new data and old data
 		if oldDoc.EarliestTweetID < doc.EarliestTweetID {
@@ -116,8 +135,12 @@ func store(doc *AnalysedDocument, ds *datastore.Client) error {
 		return err
 	}
 	// commit the updates
-	tx.Commit()
-	return nil
+	if _, err = tx.Commit(); err != nil {
+		return err
+	}
+	// update the changes flag in the database
+	_, err = ds.Put(context.Background(), changesKey, &Changes{ChangesMade: true})
+	return err
 }
 
 // Analyse reads roughly cleaned tweets from the bucket and then performs

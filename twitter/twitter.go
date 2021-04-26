@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"net/http"
 	"net/url"
 	"strconv"
 
@@ -18,12 +17,46 @@ import (
 	"github.com/dghubble/oauth1"
 )
 
-// TwitterCredentials data structore for twitter api credentials
-type TwitterCredentials struct {
-	ConsumerKey       string
-	ConsumerSecret    string
-	AccessToken       string
-	AccessTokenSecret string
+type (
+	// TwitterCredentials data structore for twitter api credentials
+	TwitterCredentials struct {
+		ConsumerKey       string
+		ConsumerSecret    string
+		AccessToken       string
+		AccessTokenSecret string
+	}
+
+	// CleanDocument contains a list of tweets betweeen EarliestTweetID
+	// LastTweetID for user with UserID that is derived from Username.
+	CleanDocument struct {
+		Username                             string
+		UserID, LastTweetID, EarliestTweetID int64
+		Tweets                               []string
+	}
+
+	// FetchMessage contains the data necessary to run a fetch using the Twitter
+	// API to get tweets.
+	FetchMessage struct {
+		Username string
+		UserID   int64
+	}
+
+	MessageHandler func(string, int64) error
+)
+
+// MaxResults is the maximum number of results that are retrieved in each request
+const MaxResults = 200
+
+// PTrue returns a pointer to a bool with value of true
+func PTrue() *bool {
+	ret := true
+	return &ret
+}
+
+// PTrue returns a pointer to a bool with value of false
+func PFalse() *bool {
+	ret := false
+	return &ret
 }
 
 // GetTwitterClient function to authorize twitter api and create a client
@@ -48,53 +81,19 @@ func GetTwitterClient(credentials *TwitterCredentials) (*twitter.Client, error) 
 	return client, nil
 }
 
-// getUser get user info based on the user input (screen name)
-func getUser(client *twitter.Client, username string) (*twitter.User, error) {
-	includeEntities := true
-	log.Println(username)
-	searchParams := twitter.UserSearchParams{
-		Query:           username,
-		Page:            1,
-		Count:           1,
-		IncludeEntities: &includeEntities,
-	}
-	users, _, err := client.Users.Search(username, &searchParams)
-	if err != nil {
-		return nil, err
-	}
-	if len(users) < 1 {
-		return nil, errors.New("no users were found with that username")
-	}
-	return &users[0], nil
-}
-
-const MaxResults = 200
-
-func PTrue() *bool {
-	ret := true
-	return &ret
-}
-
-func PFalse() *bool {
-	ret := false
-	return &ret
-}
-
-type CleanDocument struct {
-	UserID, LastTweetID, EarliestTweetID int64
-	Tweets                               []string
-}
-
-// jake and logan paul, alex jones, joe rogan,
-
 // getTweets performs calls the Twitter API to get tweets fitting parameters
 // specified in data. The tweets are passed into the tweets channels.
-func getTweets(client *twitter.Client, userID int64) (*CleanDocument, error) {
+func getTweets(client *twitter.Client, username string, userID int64) (*CleanDocument, error) {
 	var resp []twitter.Tweet
 	var err error
-	count, doc := 0, &CleanDocument{UserID: userID, LastTweetID: 0, EarliestTweetID: math.MaxInt64, Tweets: make([]string, 0)}
+	count, doc := 0, &CleanDocument{
+		Username:        username,
+		UserID:          userID,
+		LastTweetID:     0,
+		EarliestTweetID: math.MaxInt64,
+		Tweets:          make([]string, 0),
+	}
 	for ok := true; ok; ok = len(resp) > 0 {
-		// VERIFY that resp is not being shadowed
 		resp, _, err = client.Timelines.UserTimeline(&twitter.UserTimelineParams{
 			UserID:          userID,
 			Count:           MaxResults,
@@ -104,7 +103,8 @@ func getTweets(client *twitter.Client, userID int64) (*CleanDocument, error) {
 		})
 		count += len(resp)
 		// Create better error reporting mechanism
-		if err != nil || count >= 600 {
+		if err != nil {
+			log.Printf("Encountered error when getting tweets for %s: %v", username, err)
 			return doc, err
 		}
 
@@ -124,26 +124,22 @@ func getTweets(client *twitter.Client, userID int64) (*CleanDocument, error) {
 	return doc, nil
 }
 
-// Tweets gets a list of tweets specified by username
-func Tweets(client *twitter.Client, userID int64) (*CleanDocument, error) {
-	//user, err := getUser(client, username)
-	//if err != nil {
-	//	return nil, err
-	//}
-	return getTweets(client, userID)
-}
-
-func writeError(location string, err error, w http.ResponseWriter) {
-	w.WriteHeader(http.StatusBadRequest)
-	w.Write([]byte(fmt.Sprintf("Location: %s, Error: %v", location, err.Error())))
-}
-
-func unmarshal(values url.Values) (string, error) {
+// unmarshal gets the query parameters from the get request and returns them if
+// they are all valid, otherwise it returns an error
+func unmarshal(values url.Values) (string, int64, error) {
 	username := values.Get("name")
 	if username == "" {
-		return username, errors.New("username was empty, but should not have been")
+		return "", 0, errors.New("username was empty, but should not have been")
 	}
-	return username, nil
+	rawUserID := values.Get("id")
+	if rawUserID == "" {
+		return "", 0, errors.New("id was empty, but should not have been")
+	}
+	userID, err := strconv.ParseInt(rawUserID, 10, 64)
+	if err != nil {
+		return "", 0, fmt.Errorf("%v; userID was not a valid int64: (%s)", err, rawUserID)
+	}
+	return username, userID, nil
 }
 
 // storeTweets writes the document containing tweet information in a document
@@ -161,14 +157,9 @@ func storeTweets(bucket *storage.BucketHandle, doc *CleanDocument) (string, erro
 	return fileName, nil
 }
 
-type FetchMessage struct {
-	Username string
-	UserID   int64
-}
-
-// Subscribe pulls requests from a subscription and handles then whenever they
+// Subscribe pulls requests from a subscription and handles them whenever they
 // are recieved.
-func Subscribe(sub *pubsub.Subscription, messageHandler func(int64) error, quit chan bool) error {
+func Subscribe(sub *pubsub.Subscription, messageHandler MessageHandler, quit chan bool) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	//TODO: I don't think this should be an if
 	if err := sub.Receive(ctx, func(c context.Context, m *pubsub.Message) {
@@ -180,7 +171,7 @@ func Subscribe(sub *pubsub.Subscription, messageHandler func(int64) error, quit 
 		}
 		log.Println(id)
 		//TODO: call message handler
-		if err := messageHandler(id); err != nil {
+		if err := messageHandler("", id); err != nil {
 			log.Println(err)
 			m.Nack()
 		} else {
@@ -217,10 +208,10 @@ func Subscribe(sub *pubsub.Subscription, messageHandler func(int64) error, quit 
 // userid, fetch messages, store the messages in the cloud, then publish
 // another pubsub message.
 //TODO: I removed the user id parameter because we get user id in webserver container. I made it pass the id instead so we never handle a username here
-func MessageHandlerHO(tClient *twitter.Client, topic *pubsub.Topic, bucket *storage.BucketHandle) func(int64) error {
-	return func(userID int64) error {
+func MessageHandlerHO(tClient *twitter.Client, topic *pubsub.Topic, bucket *storage.BucketHandle) MessageHandler {
+	return func(name string, id int64) error {
 		// Get the list of tweets
-		tweets, err := Tweets(tClient, userID)
+		tweets, err := getTweets(tClient, name, id)
 		if err != nil {
 			return err
 		}
