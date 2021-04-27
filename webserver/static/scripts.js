@@ -95,7 +95,7 @@ function createAverageSentimentChart(averageSentiment) {
         legend: { position: "none" },
         hAxis: {
             maxValue: 100,
-            minValue: 0,
+            minValue: -100,
         }
     };
     let chart = new google.visualization.BarChart(document.getElementById("average-sentiment-wrapper"));
