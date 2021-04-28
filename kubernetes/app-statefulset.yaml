@@ -87,5 +87,5 @@ spec:
       secret:
         secretName: google-credentials-secret
         items:
-          - key: FIXME
-            path: FIXME.json
+          - key: twitteranalytics-310723-f09ac30d22c2
+            path: twitteranalytics-310723-f09ac30d22c2.json

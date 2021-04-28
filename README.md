@@ -43,6 +43,8 @@ The images are:
 
 Will scale the backend under load and make sure the service is always available.
 
+This was a helpful link for creating volume to hold google credentials file: https://stackoverflow.com/questions/47021469/how-to-set-google-application-credentials-on-gke-running-through-kubernetes
+
 ## Frontend - ?
 
 A frontend to display the data from the language processing. Will use some sort
