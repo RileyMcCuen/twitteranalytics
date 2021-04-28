@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: webserver-configmap
+data:
+  PUB_SUB_PUBLISH_ID: 'twitter-fetch'
+  ADDRESS: '0.0.0.0:8000'

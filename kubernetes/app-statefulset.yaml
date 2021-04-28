@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: app-ss
+  labels:
+    app: app-deploy
+spec:
+  replicas: 1
+  serviceName: webserver-service
+  selector:
+    matchLabels:
+      app: webserver
+  template:
+    metadata:
+      labels:
+        app: webserver
+    spec:
+      containers:
+        - name: webserver
+          image: blunderingpb/twitter-analytics:latest
+          volumeMounts:
+            - name: google-account-credentials-volume
+              mountPath: /etc/gcp
+              readOnly: true
+          envFrom:
+            - configMapRef:
+                name: general-configmap
+            - configMapRef:
+                name: webserver-configmap
+            - secretRef:
+                name: credentials-secret
+          ports:
+            - containerPort: 80
+              name: probe-port
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: probe-port
+            initialDelaySeconds: 5
+            periodSeconds: 5
+        - name: twitter
+          image: blunderingpb/twitter-fetcher:latest
+          volumeMounts:
+            - name: google-account-credentials-volume
+              mountPath: /etc/gcp
+              readOnly: true
+          envFrom:
+            - configMapRef:
+                name: general-configmap
+            - configMapRef:
+                name: twitter-configmap
+            - secretRef:
+                name: credentials-secret
+          ports:
+            - containerPort: 8001
+              name: probe-port
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: probe-port
+            initialDelaySeconds: 5
+            periodSeconds: 5
+        - name: analysis
+          image: blunderingpb/twitter-analyser:latest
+          volumeMounts:
+            - name: google-account-credentials-volume
+              mountPath: /etc/gcp
+              readOnly: true
+          envFrom:
+            - configMapRef:
+                name: general-configmap
+            - configMapRef:
+                name: analyser-configmap
+            - secretRef:
+                name: credentials-secret
+          ports:
+            - containerPort: 8002
+              name: probe-port
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: probe-port
+            initialDelaySeconds: 5
+            periodSeconds: 5
+  volumes:
+    - name: google-account-credentials-volume
+      secret:
+        secretName: google-credentials-secret
+        items:
+          - key: FIXME
+            path: FIXME.json

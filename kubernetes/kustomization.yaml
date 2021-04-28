@@ -1,0 +1,11 @@
+namePrefix: ""
+resources:
+  - general-configmap.yaml
+  - webserver-configmap.yaml
+  - twitter-configmap.yaml
+  - analysis-configmap.yaml
+  - credentials-secret.yaml
+  - google-credentials.yaml
+  - webserver-service.yaml
+  - app-statefulset.yaml
+  - ingress.yaml

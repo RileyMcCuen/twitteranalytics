@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: general-configmap
+data:
+  GOOGLE_APPLICATION_CREDENTIALS: './FIXME.json'
+  BUCKET: 'twittertimelines'
+  PROJECT_ID: 'twitteranalytics-310723'

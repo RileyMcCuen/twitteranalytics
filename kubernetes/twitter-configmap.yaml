@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: twitter-configmap
+data:
+  PUB_SUB_SUBSCRIPTION_ID: 'twitter-fetch'
+  PUB_SUB_PUBLISH_ID: 'twitter-documents'
+  ADDRESS: '0.0.0.0:8001'

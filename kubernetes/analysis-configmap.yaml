@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: analysis-configmap
+data:
+  PUB_SUB_SUBSCRIPTION_ID: 'twitter-documents'
+  ADDRESS: '0.0.0.0:8002'
