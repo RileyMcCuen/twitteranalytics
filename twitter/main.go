@@ -72,7 +72,7 @@ func VerifyEnvironment() {
 		"ADDRESS",
 		"PROJECT_ID",
 		"PUB_SUB_SUBSCRIPTION_ID",
-		"PUB_SUB_TOPIC_ID",
+		"PUB_SUB_PUBLISH_ID",
 	}
 	for _, envVar := range envVariables {
 		if _, ok := os.LookupEnv(envVar); !ok {
@@ -89,7 +89,7 @@ func InitLibs() (*twitter.Client, *pubsub.Client, *storage.BucketHandle) {
 
 // ConfigurePubSub gets a subscription and topic and makes sure that both exist.
 func ConfigurePubSub(psClient *pubsub.Client) (*pubsub.Subscription, *pubsub.Topic) {
-	subID, topicID := os.Getenv("PUB_SUB_SUBSCRIPTION_ID"), os.Getenv("PUB_SUB_TOPIC_ID")
+	subID, topicID := os.Getenv("PUB_SUB_SUBSCRIPTION_ID"), os.Getenv("PUB_SUB_PUBLISH_ID")
 	sub, topic := psClient.Subscription(subID), psClient.Topic(topicID)
 	if ok, err := sub.Exists(context.Background()); !ok || err != nil {
 		log.Fatalf("Subscription: %s does not exist. Error: %v\n", subID, err)

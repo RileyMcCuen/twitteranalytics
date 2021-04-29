@@ -72,7 +72,7 @@ func InitStorage() *storage.BucketHandle {
 
 // ConfigurePubSub gets a subscription and topic and makes sure that both exist.
 func ConfigurePubSub(psClient *pubsub.Client) *pubsub.Topic {
-	topicID := os.Getenv("PUB_SUB_TOPIC_ID")
+	topicID := os.Getenv("PUB_SUB_PUBLISH_ID")
 	topic := psClient.Topic(topicID)
 	if ok, err := topic.Exists(context.Background()); !ok || err != nil {
 		log.Fatalf("Topic: %s does not exist. Error: %v\n", topicID, err)
@@ -90,7 +90,7 @@ func VerifyEnvironment() {
 		"GOOGLE_APPLICATION_CREDENTIALS",
 		"BUCKET",
 		"PROJECT_ID",
-		"PUB_SUB_TOPIC_ID",
+		"PUB_SUB_PUBLISH_ID",
 		"ADDRESS",
 	}
 	for _, envVar := range envVariables {
