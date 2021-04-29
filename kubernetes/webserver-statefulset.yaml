@@ -17,27 +17,27 @@ spec:
     spec:
       containers:
         - name: webserver
-            image: blunderingpb/twitter-analytics:latest
-            volumeMounts:
-              - name: google-account-credentials-volume
-                mountPath: /etc/gcp
-                readOnly: true
-            envFrom:
-              - configMapRef:
-                  name: general-configmap
-              - configMapRef:
-                  name: webserver-configmap
-              - secretRef:
-                  name: credentials-secret
-            ports:
-              - containerPort: 80
-                name: probe-port
-            livenessProbe:
-              httpGet:
-                path: /health
-                port: probe-port
-              initialDelaySeconds: 5
-              periodSeconds: 5
+          image: blunderingpb/twitter-analytics:latest
+          volumeMounts:
+            - name: google-account-credentials-volume
+              mountPath: /etc/gcp
+              readOnly: true
+          envFrom:
+            - configMapRef:
+                name: general-configmap
+            - configMapRef:
+                name: webserver-configmap
+            - secretRef:
+                name: credentials-secret
+          ports:
+            - containerPort: 80
+              name: probe-port
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: probe-port
+            initialDelaySeconds: 5
+            periodSeconds: 5
   volumes:
     - name: google-account-credentials-volume
       secret:
