@@ -13,13 +13,39 @@ import (
 	"github.com/dghubble/go-twitter/twitter"
 )
 
+var envVarNames = []string{
+	"ACCESS_TOKEN",
+	"ACCESS_TOKEN_SECRET_KEY",
+	"API_KEY",
+	"API_SECRET_KEY",
+	"GOOGLE_APPLICATION_CREDENTIALS",
+	"BUCKET",
+	"PROJECT_ID",
+	"PUB_SUB_SUBSCRIPTION_ID",
+	"PUB_SUB_PUBLISH_ID",
+	"ADDRESS",
+}
+
+const (
+	evAccessToken = iota
+	evAccessTokenSecretKey
+	evAPIKey
+	evAPISecretKey
+	evGoogleApplicationCredentials
+	evBucket
+	evProjectID
+	evPubSubSubscriptionID
+	evPubSubPublishID
+	evAddress
+)
+
 // InitTwitter initializes the twitter api client
 func InitTwitter() *twitter.Client {
 	twitterCredentials := TwitterCredentials{
-		AccessToken:       os.Getenv("ACCESS_TOKEN"),
-		AccessTokenSecret: os.Getenv("ACCESS_TOKEN_SECRET_KEY"),
-		ConsumerKey:       os.Getenv("API_KEY"),
-		ConsumerSecret:    os.Getenv("API_SECRET_KEY"),
+		AccessToken:       os.Getenv(envVarNames[evAccessToken]),
+		AccessTokenSecret: os.Getenv(envVarNames[evAccessTokenSecretKey]),
+		ConsumerKey:       os.Getenv(envVarNames[evAPIKey]),
+		ConsumerSecret:    os.Getenv(envVarNames[evAPIKey]),
 	}
 	client, err := GetTwitterClient(&twitterCredentials)
 	if err != nil {
@@ -36,7 +62,7 @@ func InitStorage() *storage.BucketHandle {
 	if err != nil {
 		log.Fatalf("Failed to create Storage client: %v\n", err)
 	}
-	bucket := client.Bucket(os.Getenv("BUCKET"))
+	bucket := client.Bucket(os.Getenv(envVarNames[evBucket]))
 	attrs, err := bucket.Attrs(context.Background())
 	if attrs == nil {
 		if err != nil {
@@ -53,7 +79,7 @@ func InitStorage() *storage.BucketHandle {
 // TODO: Make a pubsub for the tweets to be processed
 func InitPubSub() *pubsub.Client {
 	ctx := context.Background()
-	client, err := pubsub.NewClient(ctx, os.Getenv("PROJECT_ID"))
+	client, err := pubsub.NewClient(ctx, os.Getenv(envVarNames[evProjectID]))
 	if err != nil {
 		log.Fatalf("Could not set up pub sub client: #{err}\n")
 	}
@@ -62,19 +88,7 @@ func InitPubSub() *pubsub.Client {
 
 // VerifyEnvironment verifies that all expected environment variables exist
 func VerifyEnvironment() {
-	envVariables := [...]string{
-		"ACCESS_TOKEN",
-		"ACCESS_TOKEN_SECRET_KEY",
-		"API_KEY",
-		"API_SECRET_KEY",
-		"GOOGLE_APPLICATION_CREDENTIALS",
-		"BUCKET",
-		"ADDRESS",
-		"PROJECT_ID",
-		"PUB_SUB_SUBSCRIPTION_ID",
-		"PUB_SUB_PUBLISH_ID",
-	}
-	for _, envVar := range envVariables {
+	for _, envVar := range envVarNames {
 		if _, ok := os.LookupEnv(envVar); !ok {
 			log.Fatalf("twitter Missing environment variable: %s\n", envVar)
 		}
@@ -89,13 +103,13 @@ func InitLibs() (*twitter.Client, *pubsub.Client, *storage.BucketHandle) {
 
 // ConfigurePubSub gets a subscription and topic and makes sure that both exist.
 func ConfigurePubSub(psClient *pubsub.Client) (*pubsub.Subscription, *pubsub.Topic) {
-	subID, topicID := os.Getenv("PUB_SUB_SUBSCRIPTION_ID"), os.Getenv("PUB_SUB_PUBLISH_ID")
-	sub, topic := psClient.Subscription(subID), psClient.Topic(topicID)
+	subID, pubID := os.Getenv(envVarNames[evPubSubSubscriptionID]), os.Getenv(envVarNames[evPubSubPublishID])
+	sub, topic := psClient.Subscription(subID), psClient.Topic(pubID)
 	if ok, err := sub.Exists(context.Background()); !ok || err != nil {
 		log.Fatalf("Subscription: %s does not exist. Error: %v\n", subID, err)
 	}
 	if ok, err := topic.Exists(context.Background()); !ok || err != nil {
-		log.Fatalf("Topic: %s does not exist. Error: %v\n", topicID, err)
+		log.Fatalf("Topic: %s does not exist. Error: %v\n", pubID, err)
 	}
 	return sub, topic
 }
@@ -118,5 +132,5 @@ func main() {
 	}
 	// Handle calls to the health endpoint
 	http.HandleFunc("/api/health", Health)
-	log.Fatal(http.ListenAndServe(os.Getenv("ADDRESS"), nil))
+	log.Fatal(http.ListenAndServe(os.Getenv(envVarNames[evAddress]), nil))
 }

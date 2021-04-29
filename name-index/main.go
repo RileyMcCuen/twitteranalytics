@@ -11,6 +11,18 @@ import (
 	"cloud.google.com/go/storage"
 )
 
+var envVarNames = []string{
+	"GOOGLE_APPLICATION_CREDENTIALS",
+	"BUCKET",
+	"PROJECT_ID",
+}
+
+const (
+	evGoogleApplicationCredentials = iota
+	evBucket
+	evProjectID
+)
+
 type (
 	// Changes is the flag in the database indicating whether new data has been
 	// added since the last time Changes was checked and toggled.
@@ -43,7 +55,7 @@ var changesKey = datastore.IDKey(changesKind, changesKeyID, nil)
 
 // InitDatastore intializes the database client
 func InitDatastore() *datastore.Client {
-	store, err := datastore.NewClient(context.Background(), os.Getenv("PROJECT_ID"))
+	store, err := datastore.NewClient(context.Background(), os.Getenv(envVarNames[evProjectID]))
 	if err != nil {
 		log.Fatalf("Could not get datastore client: %v\n", err)
 	}
@@ -58,7 +70,7 @@ func InitStorage() *storage.BucketHandle {
 	if err != nil {
 		log.Fatalf("Failed to create Storage client: %v\n", err)
 	}
-	bucket := client.Bucket(os.Getenv("BUCKET"))
+	bucket := client.Bucket(os.Getenv(envVarNames[evBucket]))
 	attrs, err := bucket.Attrs(context.Background())
 	if attrs == nil {
 		log.Fatalf("Bucket has not attributes...\n")
@@ -71,12 +83,7 @@ func InitStorage() *storage.BucketHandle {
 
 // VerifyEnvironment verifies that all expected environment variables exist
 func VerifyEnvironment() {
-	envVariables := [...]string{
-		"GOOGLE_APPLICATION_CREDENTIALS",
-		"BUCKET",
-		"PROJECT_ID",
-	}
-	for _, envVar := range envVariables {
+	for _, envVarNames := range envVariables {
 		if _, ok := os.LookupEnv(envVar); !ok {
 			log.Fatalf("Missing environment variable: %s\n", envVar)
 		}
