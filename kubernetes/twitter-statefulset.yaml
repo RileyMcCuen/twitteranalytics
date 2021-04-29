@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: twitter-ss
+  labels:
+    app: twitter-deploy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: twitter
+  template:
+    metadata:
+      labels:
+        app: twitter
+    spec:
+      containers:
+        - name: twitter
+            image: blunderingpb/twitter-fetcher:latest
+            volumeMounts:
+              - name: google-account-credentials-volume
+                mountPath: /etc/gcp
+                readOnly: true
+            envFrom:
+              - configMapRef:
+                  name: general-configmap
+              - configMapRef:
+                  name: twitter-configmap
+              - secretRef:
+                  name: credentials-secret
+            ports:
+              - containerPort: 8001
+                name: probe-port
+            livenessProbe:
+              httpGet:
+                path: /health
+                port: probe-port
+              initialDelaySeconds: 5
+              periodSeconds: 5
+  volumes:
+    - name: google-account-credentials-volume
+      secret:
+        secretName: google-credentials-secret
+        items:
+          - key: twitteranalytics-310723-f09ac30d22c2
+            path: twitteranalytics-310723-f09ac30d22c2.json
