@@ -1,5 +1,4 @@
 FROM alpine:3.7
-COPY ./build ./build
+COPY ./build/twitteranalytics ./twitteranalytics
 COPY ./static ./static
-WORKDIR ./build
 CMD ["./twitteranalytics"]
