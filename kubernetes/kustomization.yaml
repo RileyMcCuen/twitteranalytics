@@ -8,7 +8,7 @@ resources:
   - twitter-configmap.yaml
   - analysis-configmap.yaml
   - credentials-secret.yaml
-  - google-credentials.yaml
+  - google-credentials-secret.yaml
   - webserver-service.yaml
   - webserver-statefulset.yaml
   - twitter-statefulset.yaml
