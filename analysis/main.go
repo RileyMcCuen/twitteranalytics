@@ -13,6 +13,22 @@ import (
 	"github.com/cdipaolo/sentiment"
 )
 
+var envVarNames = []string{
+	"GOOGLE_APPLICATION_CREDENTIALS",
+	"BUCKET",
+	"ADDRESS",
+	"PROJECT_ID",
+	"PUB_SUB_SUBSCRIPTION_ID",
+}
+
+const (
+	evGoogleApplicationCredentials = iota
+	evBucket
+	evAddress
+	evProjectID
+	evPubSubSubscriptionID
+)
+
 // InitStorage creates a client, gets a bucket handle and then verifies that the
 // bucket exists.
 func InitStorage() *storage.BucketHandle {
@@ -21,7 +37,7 @@ func InitStorage() *storage.BucketHandle {
 	if err != nil {
 		log.Fatalf("Failed to create Storage client: %v\n", err)
 	}
-	bucket := client.Bucket(os.Getenv("BUCKET"))
+	bucket := client.Bucket(os.Getenv(envVarNames[evBucket]))
 	attrs, err := bucket.Attrs(context.Background())
 	if attrs == nil {
 		log.Fatalf("Bucket has not attributes...\n")
@@ -43,7 +59,7 @@ func InitModel() sentiment.Models {
 
 // InitDatastore creates a client to contact the database.
 func InitDatastore() *datastore.Client {
-	store, err := datastore.NewClient(context.Background(), os.Getenv("PROJECT_ID"))
+	store, err := datastore.NewClient(context.Background(), os.Getenv(envVarNames[evProjectID]))
 	if err != nil {
 		log.Fatalf("Could not get datastore client: %v\n", err)
 	}
@@ -52,7 +68,7 @@ func InitDatastore() *datastore.Client {
 
 func InitPubSubClient() *pubsub.Client {
 	ctx := context.Background()
-	client, err := pubsub.NewClient(ctx, os.Getenv("PROJECT_ID"))
+	client, err := pubsub.NewClient(ctx, os.Getenv(envVarNames[evProjectID]))
 	if err != nil {
 		log.Fatalf("Could not initialize pub sub client: #{err}\n")
 	}
@@ -61,7 +77,7 @@ func InitPubSubClient() *pubsub.Client {
 
 // ConfigurePubSub gets a subscription and topic and makes sure that both exist.
 func ConfigurePubSub(psClient *pubsub.Client) *pubsub.Subscription {
-	subID := os.Getenv("PUB_SUB_SUBSCRIPTION_ID")
+	subID := os.Getenv(envVarNames[evPubSubSubscriptionID])
 	sub := psClient.Subscription(subID)
 	if ok, err := sub.Exists(context.Background()); !ok || err != nil {
 		log.Fatalf("Subscription: %s does not exist. Error: %v\n", subID, err)
@@ -72,14 +88,7 @@ func ConfigurePubSub(psClient *pubsub.Client) *pubsub.Subscription {
 //TODO: Update this
 // VerifyEnvironment verifies that all expected environment variables exist
 func VerifyEnvironment() {
-	envVariables := [...]string{
-		"GOOGLE_APPLICATION_CREDENTIALS",
-		"BUCKET",
-		"ADDRESS",
-		"PROJECT_ID",
-		"PUB_SUB_SUBSCRIPTION_ID",
-	}
-	for _, envVar := range envVariables {
+	for _, envVar := range envVarNames {
 		if _, ok := os.LookupEnv(envVar); !ok {
 			log.Fatalf("Missing environment variable: %s\n", envVar)
 		}
@@ -116,5 +125,5 @@ func main() {
 
 	// Handle calls to the health endpoint
 	http.HandleFunc("/api/health", Health)
-	log.Fatal(http.ListenAndServe(os.Getenv("ADDRESS"), nil))
+	log.Fatal(http.ListenAndServe(os.Getenv(envVarNames[evAddress]), nil))
 }
