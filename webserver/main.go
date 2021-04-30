@@ -149,7 +149,7 @@ func main() {
 	tClient, ds, bucket, psClient := InitLibs()
 	topic := ConfigurePubSub(psClient)
 	// Handle requests for static files
-	http.Handle("/static/", NewLogHandler(http.StripPrefix("/static", http.FileServer(http.Dir("../static")))))
+	http.Handle("/static/", NewLogHandler(http.StripPrefix("/static", http.FileServer(http.Dir("./static")))))
 	// Handle calls to the analysis endpoint
 	http.HandleFunc("/api/analyse", LogHandlerHO(GetAnalysisHO(tClient, ds, topic)))
 	// Handle calls to get list of users that have already been analysed
