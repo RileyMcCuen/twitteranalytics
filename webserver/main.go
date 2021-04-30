@@ -68,7 +68,7 @@ func InitDatastore() *datastore.Client {
 
 func InitPubSub() *pubsub.Client {
 	ctx := context.Background()
-	client, err := pubsub.NewClient(ctx, os.Getenv(envVarNames[evProjectID])))
+	client, err := pubsub.NewClient(ctx, os.Getenv(envVarNames[evProjectID]))
 	if err != nil {
 		log.Fatalf("Could not set up pub sub client: #{err}\n")
 	}
@@ -158,6 +158,7 @@ func NewLogHandler(handler http.Handler) http.Handler {
 
 // main starts up the webserver.
 func main() {
+    log.Println("Webserver is running...")
 	// Get clients
 	tClient, ds, bucket, psClient := InitLibs()
 	topic := ConfigurePubSub(psClient)

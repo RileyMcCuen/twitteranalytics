@@ -83,7 +83,7 @@ func InitStorage() *storage.BucketHandle {
 
 // VerifyEnvironment verifies that all expected environment variables exist
 func VerifyEnvironment() {
-	for _, envVarNames := range envVariables {
+	for _, envVar := range envVarNames {
 		if _, ok := os.LookupEnv(envVar); !ok {
 			log.Fatalf("Missing environment variable: %s\n", envVar)
 		}
