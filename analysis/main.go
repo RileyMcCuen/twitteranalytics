@@ -108,6 +108,7 @@ func Health(w http.ResponseWriter, r *http.Request) {
 
 // main starts up the webserver.
 func main() {
+    log.Println("Starting up twitter analysis...")
 	// Get clients
 	bucket, model, ds, psClient := InitLibs()
 	ctx := context.Background()
@@ -125,5 +126,6 @@ func main() {
 
 	// Handle calls to the health endpoint
 	http.HandleFunc("/api/health", Health)
+	log.Println("Starting up webserver...")
 	log.Fatal(http.ListenAndServe(os.Getenv(envVarNames[evAddress]), nil))
 }
