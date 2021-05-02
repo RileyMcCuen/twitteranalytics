@@ -19,3 +19,22 @@
 .chart-wrapper {
     margin: 3rem 1rem;
 }
+
+.user-list-elements:hover {
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.user-list-elements {
+    font-size: 1.25rem;
+    margin: 0.5rem;
+}
+
+.user-list-loader {
+    border: 8px solid #f3f3f3; /* Light grey */
+    border-top: 8px solid #3498db; /* Blue */
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    animation: spin 2s linear infinite;
+}

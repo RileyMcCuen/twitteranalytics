@@ -1,35 +1,9 @@
+document.addEventListener("DOMContentLoaded", () => getAnalysedUsers())
+
 google.charts.load('current', { packages: ['corechart', 'bar', 'table'] });
 google.charts.setOnLoadCallback(() => {
-    document.getElementById('search').addEventListener('click', async (ev) => {
-        startLoading()
-        const username = document.getElementById('twitter-handle').value;
-        //const username = 'elonmusk';
-        console.log(`http://localhost/api/analyse?name=${encodeURI(username)}`)
-        const resp = await fetch(
-            `http://localhost/api/analyse?name=${encodeURI(username)}`
-        );
-        if (resp.ok) {
-            document.getElementById("loading-indicator-container").classList.remove("loader")
-            const data = await resp.json();
-            console.log(data)
-            if (data.UserID) {
-                let positiveCount = data.PositiveTweets
-                let negativeCount = data.NegativeTweets
-                let averageSentiment = data.AverageScore * 100
-                createPositiveNegativeTable(positiveCount, negativeCount)
-                createSentimentPieChart(positiveCount, negativeCount)
-                createAverageSentimentChart(averageSentiment)
-            } else {
-                alert(data.Message)
-            }
-            // const data = testData;
-            // createDataSummaryTable(username, data);
-            // createSentimentScoreChart(username, data.Scores);
-            // createSentimentDistChart(username, data.ScoreDist);
-            // createTopicChart(username, data.Topics);
-        } else {
-            alert('BAD RESPONSE: ' + resp.status + ': ' + (await resp.text()));
-        }
+    document.getElementById('search').addEventListener('click', (e) => {
+        analyseUser(document.getElementById('twitter-handle').value)
     });
 });
 
@@ -108,3 +82,75 @@ const startLoading = () => {
     document.getElementById("average-sentiment-wrapper").innerHTML = ""
     document.getElementById("loading-indicator-container").classList.add("loader")
 }
+
+const startLoadingUsers = () => {
+    const userList = document.getElementById("user-list")
+    while(userList.hasChildNodes()) {
+        userList.removeChild(userList.firstChild)
+
+    }
+    document.getElementById("user-loader").classList.add("user-list-loader")
+}
+
+const analyseUser = async (username) => {
+    startLoading()
+    // const username = document.getElementById('twitter-handle').value;
+    //const username = 'elonmusk';
+    // console.log(`http://localhost/api/analyse?name=${encodeURI(username)}`)
+    const resp = await fetch(
+        `http://localhost/api/analyse?name=${encodeURI(username)}`
+    );
+    if (resp.ok) {
+        document.getElementById("loading-indicator-container").classList.remove("loader")
+        const data = await resp.json();
+        console.log(data)
+        if (data.UserID) {
+            let positiveCount = data.PositiveTweets
+            let negativeCount = data.NegativeTweets
+            let averageSentiment = data.AverageScore * 100
+            createPositiveNegativeTable(positiveCount, negativeCount)
+            createSentimentPieChart(positiveCount, negativeCount)
+            createAverageSentimentChart(averageSentiment)
+        } else {
+            alert(data.Message)
+        }
+        // const data = testData;
+        // createDataSummaryTable(username, data);
+        // createSentimentScoreChart(username, data.Scores);
+        // createSentimentDistChart(username, data.ScoreDist);
+        // createTopicChart(username, data.Topics);
+    } else {
+        alert('BAD RESPONSE: ' + resp.status + ': ' + (await resp.text()));
+    }
+}
+
+const getAnalysedUsers = async () => {
+    startLoadingUsers()
+    const resp = await fetch(
+        `http://localhost/api/users`
+    );
+    if (resp.ok) {
+        document.getElementById("user-loader").classList.remove("user-list-loader")
+        const data = await resp.json();
+        console.log(data)
+        data.forEach((user) => {
+            console.log(user)
+            const username = user.Username
+            let listElement = document.createElement("li")
+            listElement.innerHTML = username
+            listElement.addEventListener("click", (e) => {
+                analyseUser(username)
+            })
+            listElement.classList.add("user-list-elements")
+            document.getElementById("user-list").appendChild(listElement)
+        })
+        // const data = testData;
+        // createDataSummaryTable(username, data);
+        // createSentimentScoreChart(username, data.Scores);
+        // createSentimentDistChart(username, data.ScoreDist);
+        // createTopicChart(username, data.Topics);
+    } else {
+        alert('BAD RESPONSE: ' + resp.status + ': ' + (await resp.text()));
+    }
+}
+
