@@ -1,0 +1,31 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: nameindex-cj
+spec:
+  schedule: "*/1 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: nameindex
+            image: blunderingpb/twitter-indexer:latest
+            imagePullPolicy: Always
+            volumeMounts:
+              - name: google-account-credentials-volume
+                mountPath: /etc/gcp
+                readOnly: true
+            envFrom:
+              - configMapRef:
+                  name: general-configmap
+              - secretRef:
+                  name: credentials-secret
+          volumes:
+          - name: google-account-credentials-volume
+            secret:
+              secretName: google-credentials-secret
+              items:
+                - key: twitteranalytics-310723-f09ac30d22c2
+                  path: twitteranalytics-310723-f09ac30d22c2.json
+          restartPolicy: OnFailure

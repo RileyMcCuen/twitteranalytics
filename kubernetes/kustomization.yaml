@@ -13,4 +13,5 @@ resources:
   - webserver-statefulset.yaml
   - twitter-deployment.yaml
   - analysis-deployment.yaml
+  - nameindex-chron.yaml
   - ingress.yaml
