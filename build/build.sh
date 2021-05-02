@@ -17,7 +17,7 @@ go build -o ./build/analyse .
 cd ..
 # Build name indexer
 cd ./name-index
-go build -o ./build/nameindex .
+go build -o ./build/name-index .
 cd ..
 # Return to build dir
 cd ./build
