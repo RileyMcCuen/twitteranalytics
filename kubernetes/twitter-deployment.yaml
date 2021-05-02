@@ -17,6 +17,7 @@ spec:
       containers:
         - name: twitter
           image: blunderingpb/twitter-fetcher:latest
+          imagePullPolicy: Always
           volumeMounts:
             - name: google-account-credentials-volume
               mountPath: /etc/gcp

@@ -1,7 +1,7 @@
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
-  name: analysis-ss
+  name: analysis-d
   labels:
     app: analysis-deploy
 spec:
@@ -17,6 +17,7 @@ spec:
       containers:
         - name: analysis
           image: blunderingpb/twitter-analyser:latest
+          imagePullPolicy: Always
           volumeMounts:
             - name: google-account-credentials-volume
               mountPath: /etc/gcp

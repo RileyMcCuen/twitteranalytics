@@ -12,4 +12,5 @@ resources:
   - webserver-service.yaml
   - webserver-statefulset.yaml
   - twitter-deployment.yaml
+  - analysis-deployment.yaml
   - ingress.yaml

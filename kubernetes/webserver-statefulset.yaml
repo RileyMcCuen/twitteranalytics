@@ -18,6 +18,7 @@ spec:
       containers:
         - name: webserver
           image: blunderingpb/twitter-analytics:latest
+          imagePullPolicy: Always
           volumeMounts:
             - name: google-account-credentials-volume
               mountPath: /etc/gcp
