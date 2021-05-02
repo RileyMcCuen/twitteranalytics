@@ -3,6 +3,6 @@ kind: ConfigMap
 metadata:
   name: general-configmap
 data:
-  GOOGLE_APPLICATION_CREDENTIALS: /etc/gcp/twitteranalytics-310723-f09ac30d22c2.json
+  GOOGLE_APPLICATION_CREDENTIALS: "/etc/gcp/twitteranalytics-310723-f09ac30d22c2.json"
   BUCKET: "twittertimelines"
   PROJECT_ID: "twitteranalytics-310723"

@@ -30,14 +30,14 @@ spec:
             - secretRef:
                 name: credentials-secret
           ports:
-            - containerPort: 80
+            - containerPort: 8000
               name: probe-port
           livenessProbe:
             httpGet:
-              path: /health
+              path: /api/health
               port: probe-port
-            initialDelaySeconds: 5
-            periodSeconds: 5
+            initialDelaySeconds: 1
+            periodSeconds: 1
       volumes:
         - name: google-account-credentials-volume
           secret:
