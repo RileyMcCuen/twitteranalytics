@@ -98,7 +98,7 @@ const analyseUser = async (username) => {
     //const username = 'elonmusk';
     // console.log(`http://localhost/api/analyse?name=${encodeURI(username)}`)
     const resp = await fetch(
-        `http://localhost/api/analyse?name=${encodeURI(username)}`
+        `http://${window.location.host}/api/analyse?name=${encodeURI(username)}`
     );
     if (resp.ok) {
         document.getElementById("loading-indicator-container").classList.remove("loader")
@@ -125,9 +125,10 @@ const analyseUser = async (username) => {
 }
 
 const getAnalysedUsers = async () => {
+    console.log(window.location.host)
     startLoadingUsers()
     const resp = await fetch(
-        `http://localhost/api/users`
+        `http://${window.location.host}/api/users`
     );
     if (resp.ok) {
         document.getElementById("user-loader").classList.remove("user-list-loader")
