@@ -26,7 +26,7 @@ spec:
             - configMapRef:
                 name: general-configmap
             - configMapRef:
-                name: analyser-configmap
+                name: analysis-configmap
             - secretRef:
                 name: credentials-secret
           ports:
