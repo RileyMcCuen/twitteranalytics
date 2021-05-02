@@ -45,7 +45,7 @@ func InitTwitter() *twitter.Client {
 		AccessToken:       os.Getenv(envVarNames[evAccessToken]),
 		AccessTokenSecret: os.Getenv(envVarNames[evAccessTokenSecretKey]),
 		ConsumerKey:       os.Getenv(envVarNames[evAPIKey]),
-		ConsumerSecret:    os.Getenv(envVarNames[evAPIKey]),
+		ConsumerSecret:    os.Getenv(envVarNames[evAPISecretKey]),
 	}
 	client, err := GetTwitterClient(&twitterCredentials)
 	if err != nil {
