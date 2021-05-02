@@ -131,6 +131,7 @@ func users(ds *datastore.Client) ([]User, error) {
 // store, stores the provided users in a json array in the given bucket.
 func store(bucket *storage.BucketHandle, users []User) error {
 	w := bucket.Object(objectKey).NewWriter(context.Background())
+	defer w.Close()
 	return json.NewEncoder(w).Encode(users)
 }
 
@@ -145,11 +146,6 @@ func printUsers(users []User) {
 func main() {
 	// Get clients
 	ds, bucket := InitLibs()
-	_, err := ds.Put(context.Background(), changesKey, &Changes{ChangesMade: true})
-	if err != nil {
-		log.Println(err)
-		return
-	}
 	if shouldUpdate(ds) {
 		users, err := users(ds)
 		if err != nil {
@@ -158,6 +154,8 @@ func main() {
 		printUsers(users)
 		if err := store(bucket, users); err != nil {
 			log.Println(err)
+		} else {
+		    log.Println("Wrote new index to cloud...")
 		}
 	} else {
 		log.Println("No changes detected...")
