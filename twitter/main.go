@@ -127,10 +127,12 @@ func main() {
 	sub, topic := ConfigurePubSub(psClient)
 	quit := make(chan bool)
 	// Handle calls to the analysis endpoint
-	err := Subscribe(sub, MessageHandlerHO(tClient, topic, bucket), quit)
-	if err != nil {
-		log.Fatalf("Encountered an error when trying to susbcribe: %v\n", err)
-	}
+	go func() {
+		err := Subscribe(sub, MessageHandlerHO(tClient, topic, bucket), quit)
+	    if err != nil {
+		    log.Fatalf("Encountered an error when trying to susbcribe: %v\n", err)
+	    }
+	}()
 	// Handle calls to the health endpoint
 	http.HandleFunc("/api/health", Health)
 	log.Println("Starting up webserver...")

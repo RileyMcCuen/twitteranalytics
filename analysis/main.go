@@ -113,16 +113,18 @@ func main() {
 	bucket, model, ds, psClient := InitLibs()
 	ctx := context.Background()
 	sub := ConfigurePubSub(psClient)
-	receiveErr := sub.Receive(ctx, func(ctx context.Context, message *pubsub.Message) {
-		//TODO: add some error handling
-		file := string(message.Data)
-		Analyse(bucket, model, ds, file)
-		message.Ack()
-	})
-	//TODO: make sure this is appropriate error handling
-	if receiveErr != nil {
-		log.Fatalf("Error receiving from publisher: #{err}]\n")
-	}
+	go func() {
+		receiveErr := sub.Receive(ctx, func(ctx context.Context, message *pubsub.Message) {
+		    //TODO: add some error handling
+		    file := string(message.Data)
+		    Analyse(bucket, model, ds, file)
+		    message.Ack()
+	    })
+	    //TODO: make sure this is appropriate error handling
+	    if receiveErr != nil {
+		    log.Fatalf("Error receiving from publisher: #{err}]\n")
+	    }
+	}()
 
 	// Handle calls to the health endpoint
 	http.HandleFunc("/api/health", Health)
