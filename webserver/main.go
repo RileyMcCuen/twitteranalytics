@@ -125,7 +125,7 @@ func UsersHO(bucket *storage.BucketHandle) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		dataReader, err := obj.NewReader(context.Background())
 		if err != nil {
-			w.Write([]byte("{\"Message\":\"Could not get index from bucket. There are likely no users in it yet. Make a new Query!\""))
+			w.Write([]byte("{\"Message\":\"Could not get index from bucket. There are likely no users in it yet. Make a new Query!\"}"))
 		} else {
 		    w.Header().Add("Content-Type", "application/json")
 		    w.WriteHeader(http.StatusOK)

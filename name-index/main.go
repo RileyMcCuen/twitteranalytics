@@ -31,19 +31,17 @@ type (
 	// User is a username and user id of a user that has been analysed.
 	User struct {
 		Username string
-		UserID   int64
 	}
 )
 
 func (u User) String() string {
-	return fmt.Sprintf("%-d: %s", u.UserID, u.Username)
+	return fmt.Sprintf("User: %s", u.Username)
 }
 
 const (
 	changesKind   = "Changes"
 	userKind      = "User"
 	usernameField = "Username"
-	userIDField   = "UserID"
 	objectKey     = "name-index.json"
 
 	changesKeyID = 1
@@ -126,7 +124,7 @@ func shouldUpdate(ds *datastore.Client) bool {
 // users gets the first 100,000 (username, id) pairs from the database.
 func users(ds *datastore.Client) ([]User, error) {
 	dst := make([]User, 0)
-	_, err := ds.GetAll(context.Background(), datastore.NewQuery(userKind).Limit(limit).Project(usernameField, userIDField).Order(usernameField), &dst)
+	_, err := ds.GetAll(context.Background(), datastore.NewQuery(userKind).Limit(limit).Project(usernameField).Order(usernameField), &dst)
 	return dst, err
 }
 
