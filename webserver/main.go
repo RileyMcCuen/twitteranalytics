@@ -126,8 +126,11 @@ func UsersHO(bucket *storage.BucketHandle) http.HandlerFunc {
 		dataReader, err := obj.NewReader(context.Background())
 		if err != nil {
 			w.Write([]byte("{\"Message\":\"Could not get index from bucket. There are likely no users in it yet. Make a new Query!\""))
+		} else {
+		    w.Header().Add("Content-Type", "application/json")
+		    w.WriteHeader(http.StatusOK)
+		    io.Copy(w, dataReader)
 		}
-		io.Copy(w, dataReader)
 	}
 }
 
@@ -158,8 +161,8 @@ func NewLogHandler(handler http.Handler) http.Handler {
 
 // main starts up the webserver.
 func main() {
-    log.Println("Webserver is running...")
-	// Get clients
+    log.Println("Webserver is starting...")
+    // Get clients
 	tClient, ds, bucket, psClient := InitLibs()
 	topic := ConfigurePubSub(psClient)
 	// Handle requests for static files
@@ -170,5 +173,6 @@ func main() {
 	http.HandleFunc("/api/users", UsersHO(bucket))
 	// Handle calls to the health endpoint
 	http.HandleFunc("/api/health", Health)
+	log.Println("Webserver is running...")
 	log.Fatal(http.ListenAndServe(os.Getenv(envVarNames[evAddress]), nil))
 }
