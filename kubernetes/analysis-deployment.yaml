@@ -24,11 +24,11 @@ spec:
               readOnly: true
           envFrom:
             - configMapRef:
-              name: general-configmap
+                name: general-configmap
             - configMapRef:
-              name: analyser-configmap
+                name: analyser-configmap
             - secretRef:
-              name: credentials-secret
+                name: credentials-secret
           ports:
             - containerPort: 8002
               name: probe-port
