@@ -9,8 +9,9 @@ resources:
   - analysis-configmap.yaml
   - credentials-secret.yaml
   - google-credentials-secret.yaml
+  - webserver-service.yaml
   - webserver-statefulset.yaml
   - twitter-deployment.yaml
   - analysis-deployment.yaml
   - nameindex-chron.yaml
-  - webserver-service.yaml
+  - ingress.yaml
