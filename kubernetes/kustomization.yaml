@@ -11,6 +11,5 @@ resources:
   - google-credentials-secret.yaml
   - webserver-service.yaml
   - webserver-statefulset.yaml
-  - twitter-statefulset.yaml
-  - analysis-statefulset.yaml
+  - twitter-deployment.yaml
   - ingress.yaml

@@ -1,7 +1,7 @@
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
-  name: twitter-ss
+  name: twitter-d
   labels:
     app: twitter-deploy
 spec:
@@ -33,7 +33,7 @@ spec:
               name: probe-port
           livenessProbe:
             httpGet:
-              path: /health
+              path: /api/health
               port: probe-port
             initialDelaySeconds: 5
             periodSeconds: 5
