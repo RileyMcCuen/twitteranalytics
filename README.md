@@ -48,4 +48,7 @@ This was a helpful link for creating volume to hold google credentials file: htt
 
 ## Frontend
 
-There is a simple vanilla HTML, JS, and CSS frontend used to load data and allow the user to make requests. 
+There is a simple vanilla HTML, JS, and CSS frontend used to load data and allow the user to make requests.
+
+The domain is hosted on Godaddy which points to the Kubernetes cluster. Here is a url for the site that is running: http://twitter-analytics-cse427.info/static/
+NOTE: This site was made on 5-1-2021, realistically it will probably go offline in approximately the next month, but all of the code to run it will live here.
