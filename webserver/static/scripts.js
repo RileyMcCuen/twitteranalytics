@@ -143,6 +143,9 @@ const getAnalysedUsers = async () => {
                 analyseUser(username)
             })
             listElement.classList.add("user-list-elements")
+            listElement.classList.add("btn")
+            listElement.classList.add("btn-default")
+
             document.getElementById("user-list").appendChild(listElement)
         })
         // const data = testData;

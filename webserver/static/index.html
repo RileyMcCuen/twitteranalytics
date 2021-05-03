@@ -12,6 +12,14 @@
     <link rel="stylesheet" href="styles.css">
 
     <script src="https://www.gstatic.com/charts/loader.js"></script>
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css" integrity="sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu" crossorigin="anonymous">
+
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap-theme.min.css" integrity="sha384-6pzBo3FDv/PJ8r2KRkGHifhEocL+1X2rVCTTkUfGk7/0pbek5mMa1upzvWbrUbOZ" crossorigin="anonymous">
+
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js" integrity="sha384-aJ21OjlMXNL5UyIl/XNwTMqvzeRMZH2w8c5cRVpzpU8Y5bApTppSuUkhZXN0VxHd" crossorigin="anonymous"></script>
 
     <style>
         .loader {
@@ -32,11 +40,23 @@
     </style>
 </head>
 
-<body>
-    <h1> Twitter Analysis </h1>
-    <p> This site is for analysing tweets by a single account on Twitter. </p>
-    <input id="twitter-handle" type="text" placeholder="Twitter Handle" />
-    <button id="search"> Search </button>
+<body id="body">
+    <div id="header">
+        <h1> Twitter Analysis </h1>
+        <p> This site is for analysing tweets by a single account on Twitter. </p>
+    </div>
+    <div id="search-wrapper">
+        <div class="col-sm-6">
+            <div class="input-group">
+                <span class="input-group-addon">@</span>
+                <input type="text" class="form-control" id="twitter-handle"  placeholder="Twitter handle">
+            </div>
+        </div>
+        <button id="search" class="btn btn-default"> Search </button>
+
+    </div>
+
+<!--    <input class="form-control" id="twitter-handle" type="text" placeholder="Twitter Handle" />-->
     <div id="loading-indicator-container" class="classname"></div>
     <div id="sentiment-counts-container" class="chart-wrapper"></div>
     <div id="sentiment-pie-chart-wrapper" class="chart-wrapper"></div>
@@ -44,7 +64,7 @@
     <div id="user-list-wrapper">
         <h2 id="user-list-header">Analysed Users</h2>
         <div id="user-loader"></div>
-        <ul id="user-list">
+        <ul id="user-list" class="list-unstyled">
         </ul>
     </div>
 <!--    <div id="summary-container"></div>-->
