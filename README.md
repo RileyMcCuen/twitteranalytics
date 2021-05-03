@@ -52,3 +52,19 @@ There is a simple vanilla HTML, JS, and CSS frontend used to load data and allow
 
 The domain is hosted on Godaddy which points to the Kubernetes cluster. Here is a url for the site that is running: http://twitter-analytics-cse427.info/static/
 NOTE: This site was made on 5-1-2021, realistically it will probably go offline in approximately the next month, but all of the code to run it will live here.
+
+# Steps to Deploy
+
+- Get Google Cloud and Twitter Developer accounts and credentials.
+- Install and configure the glcoud cli to interact with your Google project from your local machine.
+    - You can do the rest of the steps using the Cloud Shell or the gcloud API locally installed. You can also do most of them through the web console, but some steps are easier       to do on the command line if you are comfortable with using it.
+- Install the Kubernetes extension for the gcloud cli.
+- Install Docker and Kubernetes.
+- Set up a Google Project and save that project name and id for later.
+- Create a CloudStorage bucket for the project and save that bucket name.
+- Create a Datastore database for the project and save the id.
+- Create two Pub/Sub Topics and a Subscription for each Topic for the project, one will be for Twitter Fetch requests and the other will be for Analysis requests.
+- Create a Kubernetes cluster using Google Kubernetes Cluster in the same project.
+- Replace the environment variables and secrets in all of the *-configmap.yaml and *-secret.yaml files in the kubernetes folder of the project.
+- Run `gcloud container clusters get-credentials <YOUR PROJECT NAME>` in order to get access to your GKE cluster from your local machine.
+- Finally run `kubectl apply -k .` from inside the kubernetes folder and the cluster will be deployed in the namespace of "twitter-analytics".
